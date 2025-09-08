@@ -5,6 +5,41 @@ allprojects {
     }
 }
 
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileSdkVersion 35
+
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+
+                defaultConfig {
+                    // Ensure consistent JVM target
+                }
+            }
+
+            // Set Kotlin JVM target if Kotlin plugin is applied
+            project.plugins.whenPluginAdded { plugin ->
+                if (plugin.class.name.contains('kotlin')) {
+                    project.android.kotlinOptions {
+                        jvmTarget = "17"
+                    }
+                }
+            }
+        }
+
+        // Force JVM target consistency for all Kotlin compilation tasks
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+}
+
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
