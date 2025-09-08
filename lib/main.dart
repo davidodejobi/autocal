@@ -25,7 +25,7 @@ class _AutoCalAppState extends ConsumerState<AutoCalApp> {
     super.initState();
     // Initialize shared content handler after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ref.read(sharedContentHandlerProvider).initialize(ref);
+      ref.read(sharedContentHandlerProvider).initialize(ref);
     });
   }
 
