@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Core dependencies for AutoCal functionality
+  share_handler: ^0.0.25
   receive_sharing_intent: ^1.8.1
   device_calendar: ^4.3.2
   flutter_local_notifications: ^17.2.3

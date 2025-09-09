@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:share_handler/share_handler.dart';
 
 import '../providers/event_provider.dart';
 import 'text_parser_service.dart';
@@ -14,6 +15,7 @@ class SharedContentHandler {
   SharedContentHandler._internal();
 
   StreamSubscription<List<SharedMediaFile>>? _mediaStreamSubscription;
+  StreamSubscription<SharedMedia>? _shareHandlerSubscription;
   WidgetRef? _ref;
 
   /// Initialize shared content handling
@@ -37,6 +39,9 @@ class SharedContentHandler {
       },
     );
 
+    // Also initialize share_handler for better compatibility
+    _initializeShareHandler();
+
     // Get any shared media when app is launched from sharing
     try {
       final List<SharedMediaFile> initialFiles =
@@ -52,6 +57,36 @@ class SharedContentHandler {
       await ReceiveSharingIntent.instance.reset();
     } catch (e) {
       print('Error getting initial shared media: $e');
+    }
+  }
+
+  /// Initialize share_handler for better share menu compatibility
+  void _initializeShareHandler() async {
+    try {
+      final handler = ShareHandlerPlatform.instance;
+
+      // Listen for shared content via share_handler
+      _shareHandlerSubscription = handler.sharedMediaStream.listen(
+        (SharedMedia media) {
+          // Handle shared text content
+          if (media.content != null && media.content!.isNotEmpty) {
+            _handleSharedText(media.content!);
+            print('share_handler received text: ${media.content}');
+          }
+        },
+        onError: (err) {
+          print('share_handler error: $err');
+        },
+      );
+
+      // Get initial shared content
+      final SharedMedia? initialMedia = await handler.getInitialSharedMedia();
+      if (initialMedia?.content != null && initialMedia!.content!.isNotEmpty) {
+        _handleSharedText(initialMedia.content!);
+        print('share_handler initial text: ${initialMedia.content}');
+      }
+    } catch (e) {
+      print('Error initializing share_handler: $e');
     }
   }
 
@@ -130,6 +165,8 @@ class SharedContentHandler {
   void dispose() {
     _mediaStreamSubscription?.cancel();
     _mediaStreamSubscription = null;
+    _shareHandlerSubscription?.cancel();
+    _shareHandlerSubscription = null;
     _ref = null;
   }
 }
