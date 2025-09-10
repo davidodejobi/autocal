@@ -1,7 +1,7 @@
 # Implementation Plan
 
 - [x] 1. Set up project dependencies and basic architecture
-  - Add all required Flutter packages to pubspec.yaml (receive_sharing_intent, device_calendar, flutter_local_notifications, purchases_flutter, speech_to_text, shared_preferences, intl, provider, permission_handler, tflite_flutter, path_provider)
+  - Add all required Flutter packages to pubspec.yaml (receive_sharing_intent, device_calendar, flutter_local_notifications, purchases_flutter, speech_to_text, shared_preferences, intl, provider, permission_handler, flutter_leap_sdk, path_provider)
   - Create directory structure for models, services, screens, and widgets
   - Set up basic provider state management structure
   - _Requirements: All requirements depend on this foundation_
@@ -36,13 +36,23 @@
     - Write integration tests for complete parsing workflows
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 4. Implement shared content handling
+- [x] 4. Implement shared content handling
   - Configure Android intent filters for text and URL sharing
   - Create SharedContentHandler service to process incoming content
   - Implement URL content extraction for shared links
   - Add error handling for malformed or unsupported content
   - Write tests for various sharing scenarios
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
+- [ ] 4.1 Create shared content testing UI
+  - Build a testing screen with text input field for manual text/URL entry
+  - Add "Test Parsing" button to trigger SharedContentHandler manually
+  - Display extracted text from URLs in a readable format
+  - Show parsed event results with confidence scores
+  - Add error display for failed URL extractions or parsing
+  - Include example URLs and text samples for easy testing
+  - Create navigation from main app to testing screen
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4_
 
 - [ ] 5. Build event management system
   - [ ] 5.1 Create event validation and creation logic
@@ -126,22 +136,31 @@
   - Write tests for custom reminder functionality
   - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-- [ ] 11. Build offline AI meeting notes processing (Pro)
-  - [ ] 11.1 Set up TensorFlow Lite AI infrastructure
-    - Integrate tflite_flutter package and configure models
-    - Create AI model loading and initialization service
-    - Implement model file management and updates
-    - Add error handling for model loading failures
-    - Write tests for AI model setup
-    - _Requirements: 10.2, 10.4_
+- [ ] 11. Integrate flutter_leap_sdk for enhanced AI processing (Pro)
+  - [ ] 11.1 Set up flutter_leap_sdk infrastructure and model management
+    - Add flutter_leap_sdk dependency to pubspec.yaml
+    - Initialize flutter_leap_sdk in app startup sequence
+    - Create AI Model Manager service for downloading and managing models
+    - Implement model download with progress tracking and storage management
+    - Add error handling for SDK initialization and model download failures
+    - Write tests for SDK setup, model downloading, and storage management
+    - _Requirements: 10.6, 11.3, 11.5, 11.6, 11.7, 11.8, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
 
-  - [ ] 11.2 Implement meeting notes AI processing
-    - Create MeetingNotesAIService for offline text analysis
-    - Implement action item extraction from meeting notes
+  - [ ] 11.2 Implement AI-enhanced text parsing
+    - Create enhanced text parsing service using flutter_leap_sdk
+    - Implement improved date/time/location extraction with AI
+    - Add confidence scoring comparison between basic and AI parsing
+    - Create fallback mechanism to basic parsing when AI fails
+    - Write tests comparing AI vs basic parsing accuracy
+    - _Requirements: 11.1, 11.2, 11.3, 11.4_
+
+  - [ ] 11.3 Build AI-powered meeting notes processing
+    - Create MeetingNotesAIService using flutter_leap_sdk
+    - Implement action item extraction from meeting notes using local AI
     - Add participant identification and key decision extraction
     - Create ProcessedNotes generation with confidence scoring
     - Write tests for AI processing accuracy and edge cases
-    - _Requirements: 10.1, 10.2, 10.3, 10.5_
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.7_
 
 - [ ] 12. Create user interface screens
   - [ ] 12.1 Build main home screen
@@ -166,7 +185,15 @@
     - Add feature comparison between free and Pro tiers
     - Create subscription status display and management options
     - Write widget tests for subscription interactions
-    - _Requirements: 11.1, 11.2, 11.3, 11.4_
+    - _Requirements: 13.1, 13.2, 13.3, 13.4_
+
+  - [ ] 12.4 Build AI model management screen (Pro)
+    - Create AI model management interface showing available and downloaded models
+    - Implement model download UI with progress indicators and storage requirements
+    - Add model deletion functionality with storage space recovery
+    - Create model update notifications and management
+    - Write widget tests for model management workflows
+    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
 
 - [ ] 13. Implement comprehensive error handling
   - Add global error handling and user-friendly error messages

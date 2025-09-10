@@ -108,17 +108,47 @@ AutoCal is a Flutter-based mobile application (Android-first) that automatically
 
 ### Requirement 10
 
-**User Story:** As a Pro subscriber, I want to add meeting notes to my events with offline AI processing, so that I can capture and organize meeting details without internet connectivity.
+**User Story:** As a Pro subscriber, I want to add meeting notes to my events with offline AI processing using flutter_leap_sdk, so that I can capture and organize meeting details without internet connectivity.
 
 #### Acceptance Criteria
 
 1. WHEN Pro user creates an event THEN meeting notes option SHALL be available
-2. WHEN user adds meeting notes THEN AI SHALL extract key information offline
-3. WHEN AI processes notes THEN it SHALL identify action items, participants, and key decisions
+2. WHEN user adds meeting notes THEN flutter_leap_sdk SHALL process the text locally using on-device AI models
+3. WHEN AI processes notes THEN it SHALL identify action items, participants, and key decisions using local language models
 4. WHEN notes are processed THEN extracted information SHALL be saved with the event
 5. IF AI processing fails THEN raw notes SHALL still be saved with the event
+6. WHEN app starts THEN flutter_leap_sdk models SHALL be initialized for offline processing
+7. WHEN processing meeting notes THEN no data SHALL be sent to external servers
 
 ### Requirement 11
+
+**User Story:** As a Pro subscriber, I want enhanced text parsing using flutter_leap_sdk's local AI models, so that I can get more accurate event extraction from complex text without relying on internet connectivity.
+
+#### Acceptance Criteria
+
+1. WHEN Pro user shares complex text THEN flutter_leap_sdk SHALL enhance parsing accuracy using local language models
+2. WHEN AI-enhanced parsing is complete THEN results SHALL show higher confidence scores than basic regex parsing
+3. WHEN flutter_leap_sdk models are unavailable THEN the app SHALL fallback to basic text parsing
+4. WHEN processing text with AI THEN all processing SHALL happen locally on device
+5. IF AI model loading fails THEN the app SHALL continue with standard parsing and log the error
+6. WHEN user first accesses Pro features THEN the app SHALL prompt to download required AI models
+7. WHEN downloading models THEN the app SHALL show download progress and storage requirements
+8. WHEN models are downloaded THEN they SHALL be stored locally for offline use
+
+### Requirement 12
+
+**User Story:** As a Pro subscriber, I want to manage AI model downloads and storage, so that I can control which models are available for offline processing and manage device storage.
+
+#### Acceptance Criteria
+
+1. WHEN user accesses AI model settings THEN available models SHALL be displayed with download status
+2. WHEN user selects a model to download THEN the app SHALL show model size and download progress
+3. WHEN model download completes THEN the model SHALL be available for immediate use
+4. WHEN user wants to remove a model THEN the app SHALL allow deletion to free storage space
+5. WHEN models are outdated THEN the app SHALL offer updates while maintaining offline functionality
+6. IF model download fails THEN the app SHALL provide retry options and error details
+
+### Requirement 13
 
 **User Story:** As a user, I want to manage my subscription through RevenueCat, so that I can upgrade, downgrade, or cancel my Pro subscription.
 

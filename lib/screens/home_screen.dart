@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/event_provider.dart';
 import '../screens/event_card_screen.dart';
+import '../screens/shared_content_test_screen.dart';
 
 // Main home screen for AutoCal app
 class HomeScreen extends HookConsumerWidget {
@@ -17,11 +18,6 @@ class HomeScreen extends HookConsumerWidget {
     // Example of using hooks - animation controller for welcome text
     final animationController = useAnimationController(
       duration: const Duration(milliseconds: 1000),
-    );
-    final fadeAnimation = useAnimation(
-      Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: animationController, curve: Curves.easeIn),
-      ),
     );
 
     // Start animation when widget is first built
@@ -50,6 +46,19 @@ class HomeScreen extends HookConsumerWidget {
       appBar: AppBar(
         title: const Text('AutoCal'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const SharedContentTestScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.bug_report),
+            tooltip: 'Test Shared Content',
+          ),
+        ],
       ),
       body: Center(
         child: Column(
@@ -107,6 +116,24 @@ class HomeScreen extends HookConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
             ],
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SharedContentTestScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.science),
+              label: const Text('Test Shared Content Parsing'),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Use this to test URL extraction and text parsing',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
             if (appState.isLoading)
               const Padding(
                 padding: EdgeInsets.only(top: 16),

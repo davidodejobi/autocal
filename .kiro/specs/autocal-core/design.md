@@ -55,7 +55,7 @@ The application will require the following Flutter packages:
 - `intl`: Date/time parsing and formatting
 - `provider` or `bloc`: State management
 - `permission_handler`: Managing device permissions
-- `tflite_flutter`: Offline AI model for meeting notes processing
+- `flutter_leap_sdk`: Local AI processing for enhanced text parsing and meeting notes analysis
 - `path_provider`: Local file storage for AI models
 
 ## Components and Interfaces
@@ -137,20 +137,43 @@ The application will require the following Flutter packages:
 
 ### 6. Meeting Notes AI Service (Pro Feature)
 
-**Purpose:** Process meeting notes offline using local AI models to extract structured information.
+**Purpose:** Process meeting notes offline using flutter_leap_sdk's local AI models to extract structured information.
 
 **Key Methods:**
 - `processNotes(String notes) -> Future<ProcessedNotes>`
 - `extractActionItems(String notes) -> List<ActionItem>`
 - `identifyParticipants(String notes) -> List<String>`
 - `summarizeKeyDecisions(String notes) -> List<String>`
-- `loadAIModel() -> Future<bool>`
+- `initializeLeapSDK() -> Future<bool>`
+- `enhanceTextParsing(String text) -> Future<ParsedEvent>`
 
 **Implementation:**
-- Use TensorFlow Lite for offline AI processing
-- Pre-trained models for text analysis and extraction
+- Use flutter_leap_sdk for offline AI processing with local language models
+- Enhanced text parsing for complex event extraction
+- Meeting notes analysis with structured data extraction
 - Fallback to rule-based parsing if AI fails
 - Process in background isolates for performance
+- Initialize models on app startup for faster processing
+
+### 7. AI Model Manager Service (Pro Feature)
+
+**Purpose:** Manage downloading, storage, and lifecycle of flutter_leap_sdk AI models.
+
+**Key Methods:**
+- `downloadModel(String modelId) -> Future<bool>`
+- `deleteModel(String modelId) -> Future<bool>`
+- `getAvailableModels() -> List<ModelInfo>`
+- `getDownloadedModels() -> List<ModelInfo>`
+- `checkModelUpdates() -> Future<List<ModelUpdate>>`
+- `getModelStorageSize(String modelId) -> Future<int>`
+
+**Implementation:**
+- Download models from flutter_leap_sdk repositories
+- Store models in local app directory using path_provider
+- Track model versions and update availability
+- Provide download progress callbacks
+- Handle model corruption and re-download scenarios
+- Manage storage space and cleanup old models
 
 ## Data Models
 
