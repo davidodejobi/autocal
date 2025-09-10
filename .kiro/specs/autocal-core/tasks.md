@@ -187,7 +187,7 @@
     - Write widget tests for subscription interactions
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
 
-  - [ ] 12.4 Build AI model management screen (Pro)
+  - [x] 12.4 Build AI model management screen (Pro)
     - Create AI model management interface showing available and downloaded models
     - Implement model download UI with progress indicators and storage requirements
     - Add model deletion functionality with storage space recovery

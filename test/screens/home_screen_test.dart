@@ -32,7 +32,9 @@ void main() {
       expect(find.text('AI is ready'), findsOneWidget);
     });
 
-    testWidgets('should display share to create section', (WidgetTester tester) async {
+    testWidgets('should display share to create section', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -60,7 +62,9 @@ void main() {
       expect(find.text('Voice'), findsOneWidget);
     });
 
-    testWidgets('should display recent events section', (WidgetTester tester) async {
+    testWidgets('should display recent events section', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -73,7 +77,9 @@ void main() {
       expect(find.text('Recent Events'), findsOneWidget);
     });
 
-    testWidgets('should display upgrade to pro section for free users', (WidgetTester tester) async {
+    testWidgets('should display upgrade to pro section for free users', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -86,7 +92,9 @@ void main() {
       expect(find.text('Upgrade to Pro'), findsOneWidget);
     });
 
-    testWidgets('should display bottom navigation bar', (WidgetTester tester) async {
+    testWidgets('should display bottom navigation bar', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
