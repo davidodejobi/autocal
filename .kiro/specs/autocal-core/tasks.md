@@ -14,22 +14,22 @@
   - Write unit tests for all model classes
   - _Requirements: 2.1, 3.1, 4.1, 5.1, 10.1_
 
-- [ ] 3. Build text parsing service
-  - [ ] 3.1 Implement basic date/time parsing
+- [x] 3. Build text parsing service
+  - [x] 3.1 Implement basic date/time parsing
     - Create regex patterns for common date formats (MM/DD/YYYY, DD/MM/YYYY, etc.)
     - Create regex patterns for time formats (12-hour, 24-hour, relative times)
     - Implement date/time extraction with confidence scoring
     - Write unit tests for date/time parsing edge cases
     - _Requirements: 2.1, 2.2_
 
-  - [ ] 3.2 Implement location extraction
+  - [x] 3.2 Implement location extraction
     - Create location detection using keyword patterns and common location indicators
     - Implement address parsing for structured locations
     - Add confidence scoring for location extraction
     - Write unit tests for location parsing scenarios
     - _Requirements: 2.3_
 
-  - [ ] 3.3 Create main text parser service
+  - [x] 3.3 Create main text parser service
     - Combine date, time, and location parsing into unified service
     - Implement ParsedEvent creation with confidence aggregation
     - Add support for multiple date/time combinations in single text
