@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'screens/home_screen.dart';
 import 'services/shared_content_handler.dart';
+import 'utils/app_theme.dart';
 
 void main() {
   runApp(
@@ -39,10 +40,7 @@ class _AutoCalAppState extends ConsumerState<AutoCalApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'AutoCal',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: const HomeScreen(),
       debugShowCheckedModeBanner: false,
     );
