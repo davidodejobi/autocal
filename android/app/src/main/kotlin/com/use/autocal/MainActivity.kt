@@ -1,4 +1,4 @@
-package com.example.autocal
+package com.use.autocal
 
 import io.flutter.embedding.android.FlutterActivity
 
