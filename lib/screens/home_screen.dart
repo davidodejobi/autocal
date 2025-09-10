@@ -95,6 +95,10 @@ class HomeScreen extends HookConsumerWidget {
             _buildQuickActions(context, ref, appState),
             const SizedBox(height: AppSpacing.sectionSpacing),
             
+            // AI Suggested Actions
+            _buildAISuggestedActionsSection(context, ref, appState),
+            const SizedBox(height: AppSpacing.sectionSpacing),
+            
             // Recent Events
             _buildRecentEventsSection(context, ref, eventState),
             const SizedBox(height: AppSpacing.sectionSpacing),
@@ -155,9 +159,13 @@ class HomeScreen extends HookConsumerWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.md),
-          Text(
-            'AI is ready',
-            style: Theme.of(context).textTheme.titleMedium,
+          Expanded(
+            child: Text(
+              appState.subscriptionStatus.isPro 
+                  ? 'AI is optimizing your schedule...'
+                  : 'AI is ready',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
         ],
       ),
@@ -306,6 +314,90 @@ class HomeScreen extends HookConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAISuggestedActionsSection(BuildContext context, WidgetRef ref, AppState appState) {
+    if (!appState.subscriptionStatus.isPro) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'AI Suggested Actions',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      Icons.schedule,
+                      color: AppColors.info,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Reschedule "Meeting with Alex"?',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Conflict detected with another event today that avoids conflict.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      // TODO: Dismiss suggestion
+                    },
+                    child: const Text('Dismiss'),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  ElevatedButton(
+                    onPressed: () {
+                      // TODO: Reschedule event
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Reschedule'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

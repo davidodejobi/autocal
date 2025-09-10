@@ -73,7 +73,11 @@ class SettingsScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAccountCard(BuildContext context, WidgetRef ref, AppState appState) {
+  Widget _buildAccountCard(
+    BuildContext context,
+    WidgetRef ref,
+    AppState appState,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.cardPadding),
@@ -90,15 +94,17 @@ class SettingsScreen extends HookConsumerWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: appState.subscriptionStatus.isPro 
-                      ? AppColors.warning 
+                  color: appState.subscriptionStatus.isPro
+                      ? AppColors.warning
                       : AppColors.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  appState.subscriptionStatus.isPro ? Icons.star : Icons.person_outline,
-                  color: appState.subscriptionStatus.isPro 
-                      ? Colors.white 
+                  appState.subscriptionStatus.isPro
+                      ? Icons.star
+                      : Icons.person_outline,
+                  color: appState.subscriptionStatus.isPro
+                      ? Colors.white
                       : AppColors.iconPrimary,
                   size: 24,
                 ),
@@ -109,12 +115,14 @@ class SettingsScreen extends HookConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      appState.subscriptionStatus.isPro ? 'AutoCal Pro' : 'AutoCal Free',
+                      appState.subscriptionStatus.isPro
+                          ? 'AutoCal Pro'
+                          : 'AutoCal Free',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      appState.subscriptionStatus.isPro 
+                      appState.subscriptionStatus.isPro
                           ? 'You have access to all features.'
                           : 'Upgrade to unlock all features.',
                       style: Theme.of(context).textTheme.bodyMedium,
@@ -136,8 +144,8 @@ class SettingsScreen extends HookConsumerWidget {
                 );
               },
               child: Text(
-                appState.subscriptionStatus.isPro 
-                    ? 'Manage Subscription' 
+                appState.subscriptionStatus.isPro
+                    ? 'Manage Subscription'
                     : 'Upgrade to Pro',
               ),
             ),
@@ -147,7 +155,11 @@ class SettingsScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAIFeaturesSection(BuildContext context, WidgetRef ref, AppState appState) {
+  Widget _buildAIFeaturesSection(
+    BuildContext context,
+    WidgetRef ref,
+    AppState appState,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -158,12 +170,12 @@ class SettingsScreen extends HookConsumerWidget {
         children: [
           _buildToggleSettingItem(
             context: context,
-            title: 'Enhanced Text Parsing',
-            subtitle: 'Better understanding of complex text.',
+            title: 'Smart Scheduling',
+            subtitle: 'Find the best time for your events.',
             value: appState.subscriptionStatus.isPro,
-            onChanged: appState.subscriptionStatus.isPro 
+            onChanged: appState.subscriptionStatus.isPro
                 ? (value) {
-                    // TODO: Implement enhanced parsing toggle
+                    // TODO: Implement smart scheduling toggle
                   }
                 : null,
             isFirst: true,
@@ -171,12 +183,36 @@ class SettingsScreen extends HookConsumerWidget {
           _buildDivider(),
           _buildToggleSettingItem(
             context: context,
-            title: 'Meeting Notes Analysis',
-            subtitle: 'Summarize and analyze notes.',
+            title: 'Proactive Meeting Insights',
+            subtitle: 'Get insights before meetings.',
             value: appState.subscriptionStatus.isPro,
-            onChanged: appState.subscriptionStatus.isPro 
+            onChanged: appState.subscriptionStatus.isPro
                 ? (value) {
-                    // TODO: Implement meeting notes toggle
+                    // TODO: Implement meeting insights toggle
+                  }
+                : null,
+          ),
+          _buildDivider(),
+          _buildToggleSettingItem(
+            context: context,
+            title: 'Contextual Enrichment',
+            subtitle: 'Automatically add event details.',
+            value: appState.subscriptionStatus.isPro,
+            onChanged: appState.subscriptionStatus.isPro
+                ? (value) {
+                    // TODO: Implement contextual enrichment toggle
+                  }
+                : null,
+          ),
+          _buildDivider(),
+          _buildToggleSettingItem(
+            context: context,
+            title: 'Travel Time Alerts',
+            subtitle: 'Intelligent travel time calculation.',
+            value: appState.subscriptionStatus.isPro,
+            onChanged: appState.subscriptionStatus.isPro
+                ? (value) {
+                    // TODO: Implement travel time alerts toggle
                   }
                 : null,
           ),
@@ -185,7 +221,7 @@ class SettingsScreen extends HookConsumerWidget {
             context: context,
             title: 'Voice Input',
             subtitle: 'Create events using your voice.',
-            onTap: appState.subscriptionStatus.isPro 
+            onTap: appState.subscriptionStatus.isPro
                 ? () {
                     // TODO: Navigate to voice settings
                   }
@@ -202,7 +238,7 @@ class SettingsScreen extends HookConsumerWidget {
             context: context,
             title: 'Manage AI Models',
             subtitle: '',
-            onTap: !appState.subscriptionStatus.isPro 
+            onTap: !appState.subscriptionStatus.isPro
                 ? () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -235,12 +271,21 @@ class SettingsScreen extends HookConsumerWidget {
         children: [
           _buildNavigationSettingItem(
             context: context,
+            title: 'Calendar Integrations',
+            subtitle: '',
+            onTap: () {
+              // TODO: Show calendar integrations
+            },
+            isFirst: true,
+          ),
+          _buildDivider(),
+          _buildNavigationSettingItem(
+            context: context,
             title: 'Default Calendar',
             subtitle: 'Personal',
             onTap: () {
               // TODO: Show calendar selection
             },
-            isFirst: true,
           ),
           _buildDivider(),
           _buildNavigationSettingItem(
@@ -376,16 +421,10 @@ class SettingsScreen extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
                 if (subtitle.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
                 ],
               ],
             ),
@@ -427,10 +466,7 @@ class SettingsScreen extends HookConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  Text(title, style: Theme.of(context).textTheme.titleMedium),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
@@ -441,10 +477,7 @@ class SettingsScreen extends HookConsumerWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.iconSecondary,
-            ),
+            const Icon(Icons.chevron_right, color: AppColors.iconSecondary),
           ],
         ),
       ),

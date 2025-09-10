@@ -2,7 +2,20 @@
 
 ## Introduction
 
-AutoCal is a Flutter-based mobile application (Android-first) that automatically parses dates, times, and locations from shared text content and converts them into calendar events with offline reminder capabilities. The app features a freemium model with basic functionality available for free and advanced features through a Pro subscription.
+AutoCal is a revolutionary Flutter-based mobile application (Android-first) that transforms how users manage their calendar and meetings. At its core, AutoCal automatically parses dates, times, and locations from shared text content and converts them into calendar events with offline reminder capabilities. 
+
+The app features a sophisticated freemium model where basic functionality is available for free, while Pro subscribers unlock a comprehensive suite of AI-powered productivity features including:
+
+- **Intelligent Meeting Management**: AI-powered meeting notes processing with automatic action item extraction, follow-up scheduling, and participant coordination
+- **Smart Calendar Integration**: Multi-calendar sync with Google Calendar, Outlook, and Apple Calendar, plus intelligent conflict detection and resolution
+- **Predictive Scheduling**: Machine learning-powered scheduling suggestions that learn from user behavior and preferences
+- **Advanced Voice Interface**: Natural language voice commands for complex scheduling with conversational AI
+- **Location Intelligence**: Smart travel time calculation, traffic-aware notifications, and location-based contextual reminders
+- **Collaborative Features**: Shared meeting notes, participant management, and automatic summary distribution
+- **Document Intelligence**: AI-powered document summarization, link content extraction, and smart meeting briefings
+- **Productivity Analytics**: Time usage insights, work-life balance monitoring, and personalized optimization recommendations
+
+All AI processing happens locally on-device using flutter_leap_sdk, ensuring maximum privacy and offline functionality while delivering enterprise-grade productivity features.
 
 ## Requirements
 
@@ -158,3 +171,129 @@ AutoCal is a Flutter-based mobile application (Android-first) that automatically
 2. WHEN user purchases Pro subscription THEN features SHALL be immediately unlocked
 3. WHEN subscription status changes THEN the app SHALL update feature availability accordingly
 4. WHEN subscription expires THEN the app SHALL gracefully handle feature restrictions
+
+### Requirement 14
+
+**User Story:** As a Pro subscriber, I want intelligent meeting follow-up automation, so that I can automatically track action items and schedule follow-up meetings based on AI analysis.
+
+#### Acceptance Criteria
+
+1. WHEN AI processes meeting notes THEN it SHALL automatically identify action items with due dates
+2. WHEN action items are identified THEN the app SHALL create follow-up reminders and calendar events
+3. WHEN meeting notes mention "follow-up in X days/weeks" THEN the app SHALL automatically schedule the follow-up meeting
+4. WHEN action items have assignees THEN the app SHALL create personalized reminder notifications
+5. WHEN follow-up meetings are created THEN they SHALL include context from the original meeting
+6. WHEN user reviews follow-ups THEN they SHALL be able to mark action items as complete
+7. WHEN action items are overdue THEN the app SHALL send escalating reminder notifications
+
+### Requirement 15
+
+**User Story:** As a Pro subscriber, I want smart calendar conflict detection and resolution, so that I can avoid double-booking and get intelligent scheduling suggestions.
+
+#### Acceptance Criteria
+
+1. WHEN creating an event THEN the app SHALL check for calendar conflicts across all connected calendars
+2. WHEN conflicts are detected THEN the app SHALL suggest alternative time slots
+3. WHEN suggesting alternatives THEN the app SHALL consider travel time between locations
+4. WHEN user has back-to-back meetings THEN the app SHALL automatically add buffer time
+5. WHEN scheduling recurring meetings THEN the app SHALL optimize for participant availability patterns
+6. WHEN conflicts cannot be resolved THEN the app SHALL offer to reschedule existing events
+7. WHEN user accepts suggestions THEN all affected events SHALL be updated automatically
+
+### Requirement 16
+
+**User Story:** As a Pro subscriber, I want multi-calendar integration with Google Calendar, Outlook, and Apple Calendar, so that I can manage all my calendars from one place.
+
+#### Acceptance Criteria
+
+1. WHEN user connects external calendars THEN the app SHALL sync events bidirectionally
+2. WHEN creating events THEN user SHALL be able to choose which calendar to save to
+3. WHEN external calendar events change THEN the app SHALL reflect updates in real-time
+4. WHEN app creates events THEN they SHALL appear in the selected external calendar
+5. WHEN user disconnects a calendar THEN local copies SHALL be preserved with clear labeling
+6. WHEN sync conflicts occur THEN the app SHALL present resolution options to the user
+7. WHEN offline THEN the app SHALL queue changes and sync when connection is restored
+
+### Requirement 17
+
+**User Story:** As a Pro subscriber, I want AI-powered event categorization and insights, so that I can understand my time usage patterns and optimize my schedule.
+
+#### Acceptance Criteria
+
+1. WHEN events are created THEN AI SHALL automatically categorize them (work, personal, health, etc.)
+2. WHEN user views analytics THEN the app SHALL show time distribution across categories
+3. WHEN patterns are detected THEN the app SHALL suggest schedule optimizations
+4. WHEN user has too many meetings THEN the app SHALL recommend focus time blocks
+5. WHEN travel time is significant THEN the app SHALL suggest location clustering
+6. WHEN work-life balance is poor THEN the app SHALL provide wellness recommendations
+7. WHEN user requests insights THEN the app SHALL generate personalized productivity reports
+
+### Requirement 18
+
+**User Story:** As a Pro subscriber, I want intelligent location-based features, so that I can get contextual reminders and automatic travel time calculations.
+
+#### Acceptance Criteria
+
+1. WHEN event has location THEN the app SHALL automatically calculate and add travel time
+2. WHEN user approaches event location THEN the app SHALL send location-based reminders
+3. WHEN traffic conditions change THEN the app SHALL update travel time estimates
+4. WHEN user frequently visits locations THEN the app SHALL learn preferred routes and timing
+5. WHEN weather affects travel THEN the app SHALL suggest earlier departure times
+6. WHEN user is running late THEN the app SHALL offer to send automatic delay notifications
+7. WHEN location is ambiguous THEN the app SHALL suggest specific addresses from user history
+
+### Requirement 19
+
+**User Story:** As a Pro subscriber, I want collaborative event planning with shared notes and participant management, so that I can coordinate complex meetings efficiently.
+
+#### Acceptance Criteria
+
+1. WHEN creating events THEN user SHALL be able to add participant email addresses
+2. WHEN participants are added THEN the app SHALL send smart invitations with agenda
+3. WHEN participants respond THEN the app SHALL track attendance and send updates
+4. WHEN meeting notes are taken THEN participants SHALL receive automatic summaries
+5. WHEN action items are assigned THEN specific participants SHALL receive targeted notifications
+6. WHEN follow-up meetings are needed THEN the app SHALL coordinate with all participants
+7. WHEN participants have conflicts THEN the app SHALL suggest alternative times for all
+
+### Requirement 20
+
+**User Story:** As a Pro subscriber, I want smart document and link attachment with AI summarization, so that I can automatically organize meeting materials and get quick overviews.
+
+#### Acceptance Criteria
+
+1. WHEN sharing links to events THEN AI SHALL automatically extract and summarize content
+2. WHEN documents are attached THEN AI SHALL generate key points and action items
+3. WHEN meeting prep is needed THEN the app SHALL create briefing summaries from attachments
+4. WHEN documents are updated THEN the app SHALL notify relevant participants
+5. WHEN searching events THEN the app SHALL include content from attached documents
+6. WHEN creating follow-ups THEN relevant documents SHALL be automatically included
+7. WHEN documents contain dates THEN the app SHALL suggest related calendar events
+
+### Requirement 21
+
+**User Story:** As a Pro subscriber, I want voice-to-calendar with natural language processing, so that I can create complex events using conversational speech.
+
+#### Acceptance Criteria
+
+1. WHEN user speaks naturally THEN AI SHALL understand complex scheduling requests
+2. WHEN voice mentions "every Tuesday" THEN the app SHALL create recurring events
+3. WHEN voice includes conditions like "if John is available" THEN the app SHALL check availability
+4. WHEN voice mentions multiple people THEN the app SHALL automatically add participants
+5. WHEN voice is unclear THEN the app SHALL ask clarifying questions through voice
+6. WHEN creating series of events THEN voice SHALL handle batch creation efficiently
+7. WHEN voice mentions conflicts THEN the app SHALL verbally suggest alternatives
+
+### Requirement 22
+
+**User Story:** As a Pro subscriber, I want predictive scheduling with machine learning, so that the app can learn my preferences and automate routine scheduling decisions.
+
+#### Acceptance Criteria
+
+1. WHEN user creates similar events THEN AI SHALL learn patterns and suggest templates
+2. WHEN scheduling meetings THEN AI SHALL predict optimal times based on history
+3. WHEN user has preferences THEN AI SHALL automatically apply them to new events
+4. WHEN patterns change THEN AI SHALL adapt suggestions accordingly
+5. WHEN user rejects suggestions THEN AI SHALL learn from the feedback
+6. WHEN creating events THEN AI SHALL pre-fill likely details based on context
+7. WHEN user behavior changes THEN AI SHALL update predictive models automatically

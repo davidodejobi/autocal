@@ -182,12 +182,14 @@ class SubscriptionScreen extends HookConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Upgrade to Pro',
-          style: Theme.of(context).textTheme.displaySmall,
+          'Upgrade to Pro and\nUnlock AI Superpowers',
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Unlock unlimited events and advanced AI features',
+          'Experience the future of scheduling with\nAutoCal\'s intelligent features.',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -198,12 +200,10 @@ class SubscriptionScreen extends HookConsumerWidget {
 
   Widget _buildFeaturesList(BuildContext context) {
     final features = [
-      {'icon': Icons.all_inclusive, 'title': 'Unlimited Events', 'subtitle': 'Create as many events as you need'},
-      {'icon': Icons.psychology, 'title': 'Enhanced AI Parsing', 'subtitle': 'Better understanding of complex text'},
-      {'icon': Icons.mic, 'title': 'Voice Input', 'subtitle': 'Create events using your voice'},
-      {'icon': Icons.notes, 'title': 'Meeting Notes Analysis', 'subtitle': 'AI-powered note summarization'},
-      {'icon': Icons.notifications_active, 'title': 'Custom Reminders', 'subtitle': 'Personalized notification schedules'},
-      {'icon': Icons.model_training, 'title': 'Offline AI Models', 'subtitle': 'Process everything locally on your device'},
+      {'icon': Icons.schedule, 'title': 'Smart Scheduling & Optimization', 'subtitle': 'Let our AI find the perfect time for your meetings, considering availability and preferences.'},
+      {'icon': Icons.insights, 'title': 'Proactive Meeting Insights & Follow-ups', 'subtitle': 'Get intelligent briefings before meetings and automated follow-up suggestions for every meeting.'},
+      {'icon': Icons.link, 'title': 'Contextual Event Enrichment & Resource Linking', 'subtitle': 'Automatically enrich your events with relevant documents, contacts, and locations from your shared content.'},
+      {'icon': Icons.location_on, 'title': 'Intelligent Travel Time Calculation & Alerts', 'subtitle': 'Get smart travel time estimates and receive alerts to ensure you\'re always on time for your appointments.'},
     ];
 
     return Container(
@@ -277,50 +277,108 @@ class SubscriptionScreen extends HookConsumerWidget {
   }
 
   Widget _buildPricingCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'AutoCal Pro',
-            style: Theme.of(context).textTheme.titleLarge,
+    return Column(
+      children: [
+        // Monthly Option
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+          child: Column(
             children: [
               Text(
-                '\$4.99',
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
+                'Monthly',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              Text(
-                '/month',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '\$9.99',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '/month',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Cancel anytime',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textTertiary,
-            ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        // Annual Option with Badge
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primary),
           ),
-        ],
-      ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Annual',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'BEST VALUE',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '\$79.99',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  Text(
+                    '/year',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
