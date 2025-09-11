@@ -1,5 +1,8 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import '../models/parsed_event.dart';
+import '../services/ai_leap_service.dart';
 
 // Service for parsing dates, times, and locations from text
 class TextParserService {
@@ -75,8 +78,24 @@ class TextParserService {
     ),
   ];
 
-  /// Parse event information from shared text
+  /// Parse event information from shared text with AI enhancement
   Future<ParsedEvent> parseEventFromText(String text) async {
+    if (text.trim().isEmpty) {
+      return ParsedEvent(
+        originalText: text,
+        confidence: 0.0,
+      );
+    }
+
+    // AI parsing will be handled by the calling code with proper Riverpod integration
+    // This method now focuses on regex-based parsing as the fallback
+
+    // Fallback to regex-based parsing
+    return _parseEventWithRegex(text);
+  }
+
+  /// Original regex-based parsing method
+  Future<ParsedEvent> _parseEventWithRegex(String text) async {
     if (text.trim().isEmpty) {
       return ParsedEvent(
         originalText: text,

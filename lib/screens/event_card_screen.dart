@@ -39,6 +39,11 @@ class EventCardScreen extends HookConsumerWidget {
             _buildAIStatusBadge(context),
             const SizedBox(height: AppSpacing.sectionSpacing),
 
+            // AI Summary (if available)
+            if (parsedEvent.summary != null)
+              _buildAISummarySection(context),
+            const SizedBox(height: AppSpacing.md),
+
             // Event Title
             _buildEventTitleField(context, titleController),
             const SizedBox(height: AppSpacing.md),
@@ -61,6 +66,16 @@ class EventCardScreen extends HookConsumerWidget {
               _buildRelatedResourcesSection(context),
             const SizedBox(height: AppSpacing.md),
 
+            // Smart Reminders (Pro Feature)
+            if (appState.subscriptionStatus.isPro && parsedEvent.suggestedReminders != null)
+              _buildSmartRemindersSection(context),
+            const SizedBox(height: AppSpacing.md),
+
+            // Key Points (if available)
+            if (parsedEvent.keyPoints != null && parsedEvent.keyPoints!.isNotEmpty)
+              _buildKeyPointsSection(context),
+            const SizedBox(height: AppSpacing.md),
+
             // Source Text
             _buildSourceTextSection(context),
             const SizedBox(height: AppSpacing.sectionSpacing),
@@ -74,39 +89,67 @@ class EventCardScreen extends HookConsumerWidget {
   }
 
   Widget _buildAIStatusBadge(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.psychology,
-            color: AppColors.success,
-            size: 16,
+    final confidence = parsedEvent.confidence;
+    final confidenceText = '${(confidence * 100).round()}% confidence';
+    final hasEnhancedFeatures = parsedEvent.summary != null || 
+                               parsedEvent.suggestedReminders != null ||
+                               parsedEvent.keyPoints != null;
+    
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.getConfidenceColor(confidence).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.getConfidenceColor(confidence).withValues(alpha: 0.3)),
           ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            'AI Status',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.success,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.psychology,
+                color: AppColors.getConfidenceColor(confidence),
+                size: 16,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'AI Analysis',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.getConfidenceColor(confidence),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                confidenceText,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.getConfidenceColor(confidence),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
+        ),
+        if (hasEnhancedFeatures) ...[
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            'High confidence',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.success,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'ENHANCED',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -359,6 +402,202 @@ class EventCardScreen extends HookConsumerWidget {
     );
   }
 
+  Widget _buildAISummarySection(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome,
+                color: AppColors.primary,
+                size: 16,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'AI Summary',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            parsedEvent.summary ?? '',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmartRemindersSection(BuildContext context) {
+    final reminders = parsedEvent.suggestedReminders ?? [];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Smart Reminders',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'AI',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ...reminders.take(3).map((reminder) => _buildReminderItem(context, reminder)),
+        if (reminders.length > 3)
+          TextButton(
+            onPressed: () {
+              // TODO: Show all reminders
+            },
+            child: Text('View all ${reminders.length} reminders'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildReminderItem(BuildContext context, SmartReminder reminder) {
+    final timeUntilEvent = reminder.reminderTime.difference(DateTime.now());
+    final isUpcoming = timeUntilEvent.isNegative;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _getReminderIcon(reminder.type),
+            color: isUpcoming ? AppColors.textSecondary : AppColors.primary,
+            size: 16,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatReminderTime(reminder.reminderTime),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: isUpcoming ? AppColors.textSecondary : AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  reminder.message,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeyPointsSection(BuildContext context) {
+    final keyPoints = parsedEvent.keyPoints ?? [];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Key Points',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ...keyPoints.map((point) => Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 6),
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  point,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        )),
+      ],
+    );
+  }
+
+  IconData _getReminderIcon(ReminderType type) {
+    switch (type) {
+      case ReminderType.preparation:
+        return Icons.checklist;
+      case ReminderType.departure:
+        return Icons.directions_walk;
+      case ReminderType.followUp:
+        return Icons.follow_the_signs;
+      default:
+        return Icons.notifications;
+    }
+  }
+
+  String _formatReminderTime(DateTime reminderTime) {
+    final now = DateTime.now();
+    final difference = reminderTime.difference(now);
+    
+    if (difference.isNegative) {
+      return 'Past reminder';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} before';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} before';
+    } else {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} before';
+    }
+  }
+
   Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
@@ -375,9 +614,15 @@ class EventCardScreen extends HookConsumerWidget {
         Expanded(
           child: ElevatedButton(
             onPressed: () {
-              // TODO: Save event
+              // TODO: Save event with smart reminders
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Event saved!')),
+                SnackBar(
+                  content: Text(
+                    parsedEvent.suggestedReminders != null 
+                        ? 'Event saved with ${parsedEvent.suggestedReminders!.length} smart reminders!'
+                        : 'Event saved!',
+                  ),
+                ),
               );
               Navigator.of(context).pop();
             },

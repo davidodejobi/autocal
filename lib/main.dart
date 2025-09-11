@@ -1,3 +1,4 @@
+import 'package:autocal/services/ai_leap_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,9 +25,11 @@ class _AutoCalAppState extends ConsumerState<AutoCalApp> {
   @override
   void initState() {
     super.initState();
-    // Initialize shared content handler after the first frame
+    // Initialize services after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(sharedContentHandlerProvider).initialize(ref);
+      // AI service will be automatically initialized by the Riverpod notifier
+      ref.read(aiServiceStateProvider);
     });
   }
 

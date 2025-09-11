@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
+import '../services/ai_leap_service.dart';
 
 // AI Model Management screen for Pro users
 class AIModelManagementScreen extends HookConsumerWidget {
@@ -10,46 +11,40 @@ class AIModelManagementScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final downloadProgress = useState<Map<String, double>>({});
+    final aiServiceState = ref.watch(aiServiceStateProvider);
+    final aiServiceNotifier = ref.read(aiServiceStateProvider.notifier);
 
-    // Mock model data - in real implementation, this would come from a provider
-    final models = [
-      {
-        'id': 'model_a',
-        'name': 'Model A',
-        'size': '1.2 GB',
-        'status': 'ready',
-        'description': 'Enhanced text parsing model',
-      },
-      {
-        'id': 'model_b',
-        'name': 'Model B',
-        'size': '1.5 GB',
-        'status': 'update_available',
-        'description': 'Meeting notes analysis model',
-      },
-      {
-        'id': 'model_c',
-        'name': 'Model C',
-        'size': '1.8 GB',
-        'status': 'available',
-        'description': 'Voice processing model',
-      },
-      {
-        'id': 'model_d',
-        'name': 'Model D',
-        'size': '2.0 GB',
-        'status': 'available',
-        'description': 'Advanced language understanding',
-      },
-      {
-        'id': 'model_e',
-        'name': 'Model E',
-        'size': '2.2 GB',
-        'status': 'downloading',
-        'description': 'Experimental features model',
-      },
-    ];
+    // Get model information from the AI service
+    final models = AILeapService.availableModels.entries.map((entry) {
+      final modelId = entry.key;
+      final modelInfo = entry.value;
+      final isDownloaded = aiServiceState.downloadedModels.contains(modelId);
+      final isDownloading = aiServiceState.downloadProgress.containsKey(modelId);
+      final isCurrent = aiServiceState.currentModelId == modelId;
+      
+      String status;
+      if (isCurrent) {
+        status = 'ready';
+      } else if (isDownloading) {
+        status = 'downloading';
+      } else if (isDownloaded) {
+        status = 'update_available'; // Could check for updates
+      } else {
+        status = 'available';
+      }
+
+      return {
+        'id': modelId,
+        'name': modelInfo.displayName,
+        'size': modelInfo.size,
+        'status': status,
+        'description': modelInfo.description,
+        'progress': aiServiceState.downloadProgress[modelId] ?? 0.0,
+        'strengthIndicator': modelInfo.strengthIndicator,
+        'capabilities': modelInfo.capabilityDescription,
+        'type': modelInfo.type.name,
+      };
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -60,36 +55,42 @@ class AIModelManagementScreen extends HookConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Privacy Notice
-            _buildPrivacyNotice(context),
-            const SizedBox(height: AppSpacing.sectionSpacing),
+      body: aiServiceState.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Error display
+                  if (aiServiceState.error != null)
+                    _buildErrorCard(context, aiServiceState.error!, aiServiceNotifier),
+                  
+                  // Privacy Notice
+                  _buildPrivacyNotice(context),
+                  const SizedBox(height: AppSpacing.sectionSpacing),
 
-            // Storage Usage
-            _buildStorageUsage(context),
-            const SizedBox(height: AppSpacing.sectionSpacing),
+                  // Storage Usage
+                  _buildStorageUsage(context, aiServiceState),
+                  const SizedBox(height: AppSpacing.sectionSpacing),
 
-            // Available Models
-            Text(
-              'Available Models',
-              style: Theme.of(context).textTheme.headlineSmall,
+                  // Available Models
+                  Text(
+                    'Available Models',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Model List
+                  ...models.map((model) => _buildModelItem(
+                    context,
+                    ref,
+                    model,
+                    aiServiceNotifier,
+                  )),
+                ],
+              ),
             ),
-            const SizedBox(height: AppSpacing.md),
-
-            // Model List
-            ...models.map((model) => _buildModelItem(
-              context,
-              ref,
-              model,
-              downloadProgress,
-            )),
-          ],
-        ),
-      ),
     );
   }
 
@@ -123,7 +124,56 @@ class AIModelManagementScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildStorageUsage(BuildContext context) {
+  Widget _buildErrorCard(BuildContext context, String error, AIServiceStateNotifier notifier) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: AppColors.error,
+            size: 24,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              error,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => notifier.clearError(),
+            icon: const Icon(Icons.close),
+            color: AppColors.error,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStorageUsage(BuildContext context, AIServiceState aiServiceState) {
+    // Calculate storage usage based on downloaded models
+    int totalUsedBytes = 0;
+    for (final modelId in aiServiceState.downloadedModels) {
+      final modelInfo = AILeapService.availableModels[modelId];
+      if (modelInfo != null) {
+        totalUsedBytes += modelInfo.sizeBytes;
+      }
+    }
+    
+    const int totalAvailableBytes = 20 * 1024 * 1024 * 1024; // 20 GB
+    final double usagePercentage = totalUsedBytes / totalAvailableBytes;
+    final String usedGB = (totalUsedBytes / (1024 * 1024 * 1024)).toStringAsFixed(1);
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -146,11 +196,11 @@ class AIModelManagementScreen extends HookConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '12 GB / 20 GB',
+                    '$usedGB GB / 20 GB',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    '60%',
+                    '${(usagePercentage * 100).toInt()}%',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -159,9 +209,11 @@ class AIModelManagementScreen extends HookConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               LinearProgressIndicator(
-                value: 0.6,
+                value: usagePercentage,
                 backgroundColor: AppColors.borderLight,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  usagePercentage > 0.8 ? AppColors.warning : AppColors.primary,
+                ),
                 minHeight: 8,
               ),
             ],
@@ -175,12 +227,12 @@ class AIModelManagementScreen extends HookConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Map<String, dynamic> model,
-    ValueNotifier<Map<String, double>> downloadProgress,
+    AIServiceStateNotifier aiServiceNotifier,
   ) {
     final status = model['status'] as String;
     final modelId = model['id'] as String;
     final isDownloading = status == 'downloading';
-    final progress = downloadProgress.value[modelId] ?? 0.0;
+    final progress = model['progress'] as double;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -200,32 +252,78 @@ class AIModelManagementScreen extends HookConsumerWidget {
                   color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.psychology_outlined,
+                child: Icon(
+                  model['type'] == 'vision' 
+                      ? Icons.visibility_outlined 
+                      : Icons.psychology_outlined,
                   size: 24,
-                  color: AppColors.iconPrimary,
+                  color: model['type'] == 'vision' 
+                      ? AppColors.info 
+                      : AppColors.iconPrimary,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      model['name'] as String,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      model['size'] as String,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                child: GestureDetector(
+                  onTap: () => _showModelDetails(context, model),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            model['name'] as String,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            model['strengthIndicator'] as String,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          if (model['type'] == 'vision') ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.info.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'VISION',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: AppColors.info,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        model['size'] as String,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        model['capabilities'] as String,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textTertiary,
+                          fontSize: 11,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              _buildModelActionButton(context, status, modelId, downloadProgress),
+              _buildModelActionButton(context, status, modelId, aiServiceNotifier),
             ],
           ),
           if (isDownloading) ...[
@@ -247,7 +345,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         GestureDetector(
-                          onTap: () => _cancelDownload(modelId, downloadProgress),
+                          onTap: () => aiServiceNotifier.cancelDownload(modelId),
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
@@ -284,7 +382,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
     BuildContext context,
     String status,
     String modelId,
-    ValueNotifier<Map<String, double>> downloadProgress,
+    AIServiceStateNotifier aiServiceNotifier,
   ) {
     switch (status) {
       case 'ready':
@@ -315,24 +413,44 @@ class AIModelManagementScreen extends HookConsumerWidget {
         );
 
       case 'update_available':
-        return ElevatedButton(
-          onPressed: () => _updateModel(modelId, downloadProgress),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.info,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            'Update',
-            style: TextStyle(fontSize: 12),
-          ),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              onPressed: () => aiServiceNotifier.loadModel(modelId),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Load',
+                style: TextStyle(fontSize: 11),
+              ),
+            ),
+            const SizedBox(width: 4),
+            ElevatedButton(
+              onPressed: () => aiServiceNotifier.downloadModel(modelId),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.info,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Update',
+                style: TextStyle(fontSize: 11),
+              ),
+            ),
+          ],
         );
 
       case 'available':
         return ElevatedButton.icon(
-          onPressed: () => _downloadModel(modelId, downloadProgress),
+          onPressed: () => aiServiceNotifier.downloadModel(modelId),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             minimumSize: Size.zero,
@@ -350,7 +468,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
 
       default:
         return OutlinedButton(
-          onPressed: () => _downloadModel(modelId, downloadProgress),
+          onPressed: () => aiServiceNotifier.downloadModel(modelId),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             minimumSize: Size.zero,
@@ -364,40 +482,130 @@ class AIModelManagementScreen extends HookConsumerWidget {
     }
   }
 
-  void _downloadModel(String modelId, ValueNotifier<Map<String, double>> downloadProgress) {
-    // Simulate download progress
-    downloadProgress.value = {...downloadProgress.value, modelId: 0.0};
+  void _showModelDetails(BuildContext context, Map<String, dynamic> model) {
+    final modelId = model['id'] as String;
+    final modelInfo = AILeapService.availableModels[modelId];
     
-    // Simulate download progress updates
-    _simulateDownload(modelId, downloadProgress);
-  }
+    if (modelInfo == null) return;
 
-  void _updateModel(String modelId, ValueNotifier<Map<String, double>> downloadProgress) {
-    // Similar to download but for updates
-    _downloadModel(modelId, downloadProgress);
-  }
-
-  void _cancelDownload(String modelId, ValueNotifier<Map<String, double>> downloadProgress) {
-    final newProgress = Map<String, double>.from(downloadProgress.value);
-    newProgress.remove(modelId);
-    downloadProgress.value = newProgress;
-  }
-
-  void _simulateDownload(String modelId, ValueNotifier<Map<String, double>> downloadProgress) {
-    // This is just for demo purposes - in real implementation, this would be handled by the AI service
-    Future.delayed(const Duration(milliseconds: 100), () {
-      final currentProgress = downloadProgress.value[modelId] ?? 0.0;
-      if (currentProgress < 1.0) {
-        downloadProgress.value = {
-          ...downloadProgress.value,
-          modelId: currentProgress + 0.02,
-        };
-        _simulateDownload(modelId, downloadProgress);
-      } else {
-        final newProgress = Map<String, double>.from(downloadProgress.value);
-        newProgress.remove(modelId);
-        downloadProgress.value = newProgress;
-      }
-    });
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              model['type'] == 'vision' 
+                  ? Icons.visibility_outlined 
+                  : Icons.psychology_outlined,
+              color: model['type'] == 'vision' 
+                  ? AppColors.info 
+                  : AppColors.primary,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                model['name'] as String,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Model type and strength
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: model['type'] == 'vision' 
+                        ? AppColors.info.withValues(alpha: 0.1)
+                        : AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    model['type'] == 'vision' ? 'VISION + TEXT' : 'TEXT ONLY',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: model['type'] == 'vision' ? AppColors.info : AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  model['strengthIndicator'] as String,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            
+            // Size
+            Text(
+              'Size: ${model['size']}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            
+            // Description
+            Text(
+              modelInfo.description,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            
+            // Capabilities
+            Text(
+              'Capabilities:',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              model['capabilities'] as String,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            
+            if (model['type'] == 'vision') ...[
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColors.info,
+                      size: 16,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Vision models can process both text and images, making them perfect for analyzing screenshots and documents.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.info,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 }

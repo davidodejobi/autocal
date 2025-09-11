@@ -1,21 +1,25 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/parsed_event.dart';
 import '../services/shared_content_handler.dart';
-import '../services/text_parser_service.dart';
+import '../providers/text_parsing_provider.dart';
 
 class SharedContentTestScreen extends ConsumerStatefulWidget {
   const SharedContentTestScreen({super.key});
 
   @override
-  ConsumerState<SharedContentTestScreen> createState() => _SharedContentTestScreenState();
+  ConsumerState<SharedContentTestScreen> createState() =>
+      _SharedContentTestScreenState();
 }
 
-class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScreen> {
+class _SharedContentTestScreenState
+    extends ConsumerState<SharedContentTestScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  
+
   bool _isLoading = false;
   String? _extractedText;
   ParsedEvent? _parsedEvent;
@@ -29,6 +33,14 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
     'Doctor appointment on Dec 15th at 3:00 PM at 123 Main St',
     'Team standup every Monday at 9 AM via Zoom',
     'Birthday party Saturday 7 PM at John\'s house',
+    // Enhanced AI demo text
+    '''Hi team, we need to schedule our quarterly Project Alpha review meeting. 
+    Let's meet this Thursday, December 14th at 2:00 PM in the main conference room (Building A, Room 301). 
+    We'll need to discuss the current sprint progress, review deliverables, address any blockers, 
+    and plan resource allocation for the next phase. Please bring your status reports and be prepared 
+    to discuss timeline adjustments. The meeting should take about 90 minutes. 
+    Sarah will present the budget analysis, and John will cover the technical roadmap. 
+    This is a high-priority meeting as we need to finalize Q1 planning by end of week.''',
   ];
 
   @override
@@ -58,14 +70,16 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
     try {
       final inputText = _textController.text.trim();
       final sharedContentHandler = SharedContentHandler();
-      final textParser = TextParserService();
-      
+      final textParsingService = ref.read(textParsingProvider);
+
       String textToParse = inputText;
 
       // Check if it's a URL and extract content
       if (_isUrl(inputText)) {
         try {
-          _extractedText = await sharedContentHandler.extractTextFromUrl(inputText);
+          _extractedText = await sharedContentHandler.extractTextFromUrl(
+            inputText,
+          );
           textToParse = _extractedText!;
         } catch (e) {
           setState(() {
@@ -78,8 +92,9 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
         _extractedText = inputText;
       }
 
-      // Parse the text for event information
-      _parsedEvent = await textParser.parseEventFromText(textToParse);
+      // Parse the text for event information using enhanced AI parsing
+      _parsedEvent = await textParsingService.parseText(textToParse);
+      log("parsed text ----------: ${_parsedEvent}");
 
       setState(() {
         _isLoading = false;
@@ -87,7 +102,6 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
 
       // Scroll to results
       _scrollToResults();
-      
     } catch (e) {
       setState(() {
         _errorMessage = 'Error during parsing: ${e.toString()}';
@@ -170,7 +184,7 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
 
             // Input section
@@ -189,7 +203,8 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
                       controller: _textController,
                       maxLines: 4,
                       decoration: const InputDecoration(
-                        hintText: 'Enter text with event information or a URL to extract content from...',
+                        hintText:
+                            'Enter text with event information or a URL to extract content from...',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -199,14 +214,18 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: _isLoading ? null : _testParsing,
-                            icon: _isLoading 
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.play_arrow),
-                            label: Text(_isLoading ? 'Processing...' : 'Test Parsing'),
+                            icon: _isLoading
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.play_arrow),
+                            label: Text(
+                              _isLoading ? 'Processing...' : 'Test Parsing',
+                            ),
                           ),
                         ),
                       ],
@@ -241,7 +260,9 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
                       children: _examples.map((example) {
                         return ActionChip(
                           label: Text(
-                            example.length > 40 ? '${example.substring(0, 40)}...' : example,
+                            example.length > 40
+                                ? '${example.substring(0, 40)}...'
+                                : example,
                             style: const TextStyle(fontSize: 12),
                           ),
                           onPressed: () => _useExample(example),
@@ -272,9 +293,10 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
                           const SizedBox(width: 8),
                           Text(
                             'Error',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
                           ),
                         ],
                       ),
@@ -314,7 +336,9 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -348,12 +372,27 @@ class _SharedContentTestScreenState extends ConsumerState<SharedContentTestScree
                       ),
                       const SizedBox(height: 16),
                       _buildEventInfoRow('Title', _parsedEvent!.title),
-                      _buildEventInfoRow('Date', _parsedEvent!.date?.toString()),
-                      _buildEventInfoRow('Start Time', _parsedEvent!.startTime?.format(context)),
-                      _buildEventInfoRow('End Time', _parsedEvent!.endTime?.format(context)),
+                      _buildEventInfoRow(
+                        'Date',
+                        _parsedEvent!.date?.toString(),
+                      ),
+                      _buildEventInfoRow(
+                        'Start Time',
+                        _parsedEvent!.startTime?.format(context),
+                      ),
+                      _buildEventInfoRow(
+                        'End Time',
+                        _parsedEvent!.endTime?.format(context),
+                      ),
                       _buildEventInfoRow('Location', _parsedEvent!.location),
-                      _buildEventInfoRow('Confidence', '${(_parsedEvent!.confidence * 100).toStringAsFixed(1)}%'),
-                      _buildEventInfoRow('Original Text', _parsedEvent!.originalText),
+                      _buildEventInfoRow(
+                        'Confidence',
+                        '${(_parsedEvent!.confidence * 100).toStringAsFixed(1)}%',
+                      ),
+                      _buildEventInfoRow(
+                        'Original Text',
+                        _parsedEvent!.originalText,
+                      ),
                     ],
                   ),
                 ),

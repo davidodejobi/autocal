@@ -7,6 +7,7 @@ import '../screens/event_card_screen.dart';
 import '../screens/shared_content_test_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/subscription_screen.dart';
+import '../services/ai_leap_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 
@@ -160,11 +161,34 @@ class HomeScreen extends HookConsumerWidget {
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Text(
-              appState.subscriptionStatus.isPro 
-                  ? 'AI is optimizing your schedule...'
-                  : 'AI is ready',
-              style: Theme.of(context).textTheme.titleMedium,
+            child: Consumer(
+              builder: (context, ref, child) {
+                final aiServiceState = ref.watch(aiServiceStateProvider);
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      aiServiceState.isInitialized
+                          ? (appState.subscriptionStatus.isPro 
+                              ? 'AI is optimizing your schedule...'
+                              : 'AI is ready')
+                          : 'AI is initializing...',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      aiServiceState.currentModelId != null
+                          ? 'Using ${AILeapService.availableModels[aiServiceState.currentModelId]?.displayName ?? 'AI model'}'
+                          : (aiServiceState.isLoading 
+                              ? 'Loading AI models...'
+                              : 'No AI model loaded'),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],

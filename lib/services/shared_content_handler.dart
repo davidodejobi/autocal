@@ -9,7 +9,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:share_handler/share_handler.dart';
 
 import '../providers/event_provider.dart';
-import 'text_parser_service.dart';
+import '../providers/text_parsing_provider.dart';
 
 /// Exception thrown when shared content cannot be processed
 class SharedContentException implements Exception {
@@ -241,9 +241,9 @@ class SharedContentHandler {
     if (_ref == null) return;
 
     try {
-      // Parse the shared text
-      final textParser = TextParserService();
-      final parsedEvent = await textParser.parseEventFromText(text);
+      // Parse the shared text using the enhanced text parsing provider
+      final textParsingService = _ref!.read(textParsingProvider);
+      final parsedEvent = await textParsingService.parseText(text);
 
       // Update the event provider with the parsed event
       _ref!.read(eventProvider.notifier).setParsedEvent(parsedEvent);
