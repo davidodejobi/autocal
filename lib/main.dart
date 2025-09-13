@@ -7,11 +7,7 @@ import 'services/shared_content_handler.dart';
 import 'utils/app_theme.dart';
 
 void main() {
-  runApp(
-    const ProviderScope(
-      child: AutoCalApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: AutoCalApp()));
 }
 
 class AutoCalApp extends ConsumerStatefulWidget {
@@ -44,6 +40,7 @@ class _AutoCalAppState extends ConsumerState<AutoCalApp> {
     return MaterialApp(
       title: 'AutoCal',
       theme: AppTheme.lightTheme,
+
       home: const HomeScreen(),
       debugShowCheckedModeBanner: false,
     );

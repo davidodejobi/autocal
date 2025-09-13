@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import '../providers/app_state_provider.dart';
 import '../providers/event_provider.dart';
 import '../screens/event_card_screen.dart';
-import '../screens/shared_content_test_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/shared_content_test_screen.dart';
 import '../screens/subscription_screen.dart';
 import '../services/ai_leap_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
-
+import '../widgets/custom_floating_navigation_bar.dart';
 
 // Main home screen for AutoCal app
 class HomeScreen extends HookConsumerWidget {
@@ -21,6 +22,9 @@ class HomeScreen extends HookConsumerWidget {
     final appState = ref.watch(appStateProvider);
     final eventState = ref.watch(eventProvider);
     final selectedIndex = useState(0);
+    final isNavBarVisible = useState(true);
+    final lastScrollPosition = useRef(0.0);
+    final scrollVelocity = useRef(0.0);
 
     // Navigate to event card when shared content is received
     useEffect(() {
@@ -28,9 +32,8 @@ class HomeScreen extends HookConsumerWidget {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => EventCardScreen(
-                parsedEvent: eventState.currentParsedEvent!,
-              ),
+              builder: (context) =>
+                  EventCardScreen(parsedEvent: eventState.currentParsedEvent!),
             ),
           );
         });
@@ -38,72 +41,131 @@ class HomeScreen extends HookConsumerWidget {
       return null;
     }, [eventState.currentParsedEvent]);
 
+    // Handle scroll notification for navigation bar visibility
+    bool handleScrollNotification(ScrollNotification notification) {
+      if (notification is ScrollUpdateNotification) {
+        final currentPosition = notification.metrics.pixels;
+        final scrollDelta = currentPosition - lastScrollPosition.value;
+
+        // Update scroll velocity for smoother detection
+        scrollVelocity.value = scrollDelta;
+
+        // Show navigation bar when at the very top
+        if (currentPosition <= 50) {
+          if (!isNavBarVisible.value) {
+            isNavBarVisible.value = true;
+          }
+        }
+        // Only trigger hide/show if we've scrolled enough distance and not at the top
+        else if (scrollDelta.abs() > 3.0) {
+          if (scrollDelta > 0) {
+            // Scrolling down - hide navigation bar
+            if (isNavBarVisible.value) {
+              isNavBarVisible.value = false;
+            }
+          } else if (scrollDelta < -3.0) {
+            // Scrolling up - show navigation bar
+            if (!isNavBarVisible.value) {
+              isNavBarVisible.value = true;
+            }
+          }
+        }
+
+        lastScrollPosition.value = currentPosition;
+      }
+
+      // Also handle scroll end to ensure nav bar shows when scrolling stops
+      if (notification is ScrollEndNotification) {
+        if (notification.metrics.pixels <= 100 && !isNavBarVisible.value) {
+          isNavBarVisible.value = true;
+        }
+      }
+
+      return false; // Allow the notification to continue
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: IndexedStack(
-        index: selectedIndex.value,
-        children: [
-          _buildHomeContent(context, ref, appState, eventState),
-          _buildEventsContent(context, ref),
-          _buildSettingsContent(context, ref),
-        ],
+      body: NotificationListener<ScrollNotification>(
+        onNotification: handleScrollNotification,
+        child: IndexedStack(
+          index: selectedIndex.value,
+          children: [
+            _buildHomeContent(context, ref, appState, eventState),
+            _buildEventsContent(context, ref),
+            _buildAnalyticsContent(context, ref),
+            _buildSettingsContent(context, ref),
+          ],
+        ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      floatingActionButton: CustomFloatingNavigationBarEnhanced(
         currentIndex: selectedIndex.value,
         onTap: (index) => selectedIndex.value = index,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            activeIcon: Icon(Icons.calendar_today),
-            label: 'Events',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
+        items: [
+          FloatingNavItems.home(),
+          FloatingNavItems.events(),
+          FloatingNavItems.profile(),
         ],
+        backgroundColor: AppColors.surface,
+        activeColor: AppColors.primary,
+        inactiveColor: AppColors.iconSecondary,
+        borderRadius: 24,
+        animationDuration: const Duration(milliseconds: 300),
+        showLabels: true,
+        enableHapticFeedback: true,
+        isVisible: isNavBarVisible.value,
+        customShadow: BoxShadow(
+          color: AppColors.primary.withOpacity(0.08),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+          spreadRadius: 0,
+        ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
-  Widget _buildHomeContent(BuildContext context, WidgetRef ref, 
-      AppState appState, EventState eventState) {
+  Widget _buildHomeContent(
+    BuildContext context,
+    WidgetRef ref,
+    AppState appState,
+    EventState eventState,
+  ) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+        padding: const EdgeInsets.only(
+          left: AppSpacing.screenPadding,
+          right: AppSpacing.screenPadding,
+          top: AppSpacing.screenPadding,
+          bottom: 100, // Extra bottom padding for floating navigation
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
             _buildHeader(context, ref, appState),
             const SizedBox(height: AppSpacing.sectionSpacing),
-            
+
             // AI Status Card
             _buildAIStatusCard(context, appState),
             const SizedBox(height: AppSpacing.sectionSpacing),
-            
+
             // Share to Create Section
             _buildShareToCreateSection(context, ref),
             const SizedBox(height: AppSpacing.sectionSpacing),
-            
+
             // Quick Actions
             _buildQuickActions(context, ref, appState),
             const SizedBox(height: AppSpacing.sectionSpacing),
-            
+
             // AI Suggested Actions
             _buildAISuggestedActionsSection(context, ref, appState),
             const SizedBox(height: AppSpacing.sectionSpacing),
-            
+
             // Recent Events
             _buildRecentEventsSection(context, ref, eventState),
             const SizedBox(height: AppSpacing.sectionSpacing),
-            
+
             // Upgrade to Pro (if not pro)
             if (!appState.subscriptionStatus.isPro)
               _buildUpgradeToProSection(context, ref),
@@ -117,16 +179,11 @@ class HomeScreen extends HookConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'AutoCal',
-          style: Theme.of(context).textTheme.headlineLarge,
-        ),
+        Text('AutoCal', style: Theme.of(context).textTheme.headlineLarge),
         IconButton(
           onPressed: () {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const SettingsScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
             );
           },
           icon: const Icon(Icons.settings_outlined),
@@ -164,24 +221,24 @@ class HomeScreen extends HookConsumerWidget {
             child: Consumer(
               builder: (context, ref, child) {
                 final aiServiceState = ref.watch(aiServiceStateProvider);
-                
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       aiServiceState.isInitialized
-                          ? (appState.subscriptionStatus.isPro 
-                              ? 'AI is optimizing your schedule...'
-                              : 'AI is ready')
+                          ? (appState.subscriptionStatus.isPro
+                                ? 'AI is optimizing your schedule...'
+                                : 'AI is ready')
                           : 'AI is initializing...',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
                       aiServiceState.currentModelId != null
                           ? 'Using ${AILeapService.availableModels[aiServiceState.currentModelId]?.displayName ?? 'AI model'}'
-                          : (aiServiceState.isLoading 
-                              ? 'Loading AI models...'
-                              : 'No AI model loaded'),
+                          : (aiServiceState.isLoading
+                                ? 'Loading AI models...'
+                                : 'No AI model loaded'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -236,7 +293,11 @@ class HomeScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context, WidgetRef ref, AppState appState) {
+  Widget _buildQuickActions(
+    BuildContext context,
+    WidgetRef ref,
+    AppState appState,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -261,11 +322,13 @@ class HomeScreen extends HookConsumerWidget {
             label: 'Voice',
             isPro: true,
             isEnabled: appState.subscriptionStatus.isPro,
-            onTap: appState.subscriptionStatus.isPro 
+            onTap: appState.subscriptionStatus.isPro
                 ? () {
                     // TODO: Implement voice functionality
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Voice feature coming soon!')),
+                      const SnackBar(
+                        content: Text('Voice feature coming soon!'),
+                      ),
                     );
                   }
                 : () {
@@ -308,14 +371,18 @@ class HomeScreen extends HookConsumerWidget {
           children: [
             Icon(
               icon,
-              color: isEnabled ? AppColors.iconPrimary : AppColors.iconSecondary,
+              color: isEnabled
+                  ? AppColors.iconPrimary
+                  : AppColors.iconSecondary,
               size: 20,
             ),
             const SizedBox(width: AppSpacing.sm),
             Text(
               label,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: isEnabled ? AppColors.textPrimary : AppColors.textSecondary,
+                color: isEnabled
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
               ),
             ),
             if (isPro && !isEnabled) ...[
@@ -341,7 +408,11 @@ class HomeScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAISuggestedActionsSection(BuildContext context, WidgetRef ref, AppState appState) {
+  Widget _buildAISuggestedActionsSection(
+    BuildContext context,
+    WidgetRef ref,
+    AppState appState,
+  ) {
     if (!appState.subscriptionStatus.isPro) {
       return const SizedBox.shrink();
     }
@@ -391,9 +462,9 @@ class HomeScreen extends HookConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Conflict detected with another event today that avoids conflict.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.md),
               Row(
@@ -410,7 +481,10 @@ class HomeScreen extends HookConsumerWidget {
                       // TODO: Reschedule event
                     },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -425,30 +499,35 @@ class HomeScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildRecentEventsSection(BuildContext context, WidgetRef ref, EventState eventState) {
+  Widget _buildRecentEventsSection(
+    BuildContext context,
+    WidgetRef ref,
+    EventState eventState,
+  ) {
     final appState = ref.watch(appStateProvider);
     final recentEvents = appState.recentEvents;
 
     // Show mock data if no recent events exist
-    final displayEvents = recentEvents.isEmpty 
+    final displayEvents = recentEvents.isEmpty
         ? [
             {'title': 'Meeting with Alex', 'confidence': 0.98, 'isReal': false},
             {'title': 'Dinner at 7 PM', 'confidence': 0.85, 'isReal': false},
             {'title': 'Project Review', 'confidence': 0.95, 'isReal': false},
           ]
-        : recentEvents.map((event) => {
-            'title': event.title,
-            'confidence': 0.9, // Default confidence for real events
-            'isReal': true,
-          }).toList();
+        : recentEvents
+              .map(
+                (event) => {
+                  'title': event.title,
+                  'confidence': 0.9, // Default confidence for real events
+                  'isReal': true,
+                },
+              )
+              .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Recent Events',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
+        Text('Recent Events', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: AppSpacing.md),
         if (displayEvents.isEmpty)
           Container(
@@ -482,16 +561,24 @@ class HomeScreen extends HookConsumerWidget {
             ),
           )
         else
-          ...displayEvents.take(3).map((event) => _buildRecentEventItem(
-            context,
-            event['title'] as String,
-            event['confidence'] as double,
-          )),
+          ...displayEvents
+              .take(3)
+              .map(
+                (event) => _buildRecentEventItem(
+                  context,
+                  event['title'] as String,
+                  event['confidence'] as double,
+                ),
+              ),
       ],
     );
   }
 
-  Widget _buildRecentEventItem(BuildContext context, String title, double confidence) {
+  Widget _buildRecentEventItem(
+    BuildContext context,
+    String title,
+    double confidence,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -519,10 +606,7 @@ class HomeScreen extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 2),
                 Row(
                   children: [
@@ -546,10 +630,7 @@ class HomeScreen extends HookConsumerWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right,
-            color: AppColors.iconSecondary,
-          ),
+          const Icon(Icons.chevron_right, color: AppColors.iconSecondary),
         ],
       ),
     );
@@ -567,10 +648,7 @@ class HomeScreen extends HookConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Upgrade to Pro',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Upgrade to Pro', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Unlock unlimited events and advanced features.',
@@ -596,12 +674,75 @@ class HomeScreen extends HookConsumerWidget {
   }
 
   Widget _buildEventsContent(BuildContext context, WidgetRef ref) {
-    return const Center(
-      child: Text('Events screen coming soon!'),
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(
+          left: AppSpacing.screenPadding,
+          right: AppSpacing.screenPadding,
+          top: AppSpacing.screenPadding,
+          bottom: 100, // Extra bottom padding for floating navigation
+        ),
+        child: Column(
+          children: [
+            const Center(child: Text('Events screen coming soon!')),
+            // Add some extra content to make it scrollable for testing
+            ...List.generate(
+              20,
+              (index) => Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('Event item ${index + 1}'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsContent(BuildContext context, WidgetRef ref) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(
+          left: AppSpacing.screenPadding,
+          right: AppSpacing.screenPadding,
+          top: AppSpacing.screenPadding,
+          bottom: 100, // Extra bottom padding for floating navigation
+        ),
+        child: Column(
+          children: [
+            const Center(child: Text('Analytics screen coming soon!')),
+            // Add some extra content to make it scrollable for testing
+            ...List.generate(
+              15,
+              (index) => Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('Analytics item ${index + 1}'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildSettingsContent(BuildContext context, WidgetRef ref) {
-    return const SettingsScreen();
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(
+          bottom: 100, // Extra bottom padding for floating navigation
+        ),
+        child: const SettingsScreen(),
+      ),
+    );
   }
 }
