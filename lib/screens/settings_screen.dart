@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import '../providers/app_state_provider.dart';
-import '../screens/subscription_screen.dart';
 import '../screens/ai_model_management_screen.dart';
+import '../screens/subscription_screen.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 
@@ -16,23 +17,17 @@ class SettingsScreen extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Settings'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.screenPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Account Section
-            _buildSectionHeader(context, 'ACCOUNT'),
-            const SizedBox(height: AppSpacing.md),
-            _buildAccountCard(context, ref, appState),
-            const SizedBox(height: AppSpacing.sectionSpacing),
+            // _buildSectionHeader(context, 'ACCOUNT'),
+            // const SizedBox(height: AppSpacing.md),
+            // _buildAccountCard(context, ref, appState),
+            // const SizedBox(height: AppSpacing.sectionSpacing),
 
             // AI Features Section
             _buildSectionHeader(context, 'AI FEATURES'),

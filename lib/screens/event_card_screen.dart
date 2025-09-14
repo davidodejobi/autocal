@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import '../models/parsed_event.dart';
 import '../providers/app_state_provider.dart';
 import '../utils/app_colors.dart';
@@ -10,16 +11,17 @@ import '../utils/app_spacing.dart';
 class EventCardScreen extends HookConsumerWidget {
   final ParsedEvent parsedEvent;
 
-  const EventCardScreen({
-    super.key,
-    required this.parsedEvent,
-  });
+  const EventCardScreen({super.key, required this.parsedEvent});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appState = ref.watch(appStateProvider);
-    final titleController = useTextEditingController(text: parsedEvent.title ?? 'Project Alpha Sync');
-    final locationController = useTextEditingController(text: parsedEvent.location ?? '123 Main St, Anytown USA');
+    final titleController = useTextEditingController(
+      text: parsedEvent.title ?? '',
+    );
+    final locationController = useTextEditingController(
+      text: parsedEvent.location ?? '',
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -40,8 +42,7 @@ class EventCardScreen extends HookConsumerWidget {
             const SizedBox(height: AppSpacing.sectionSpacing),
 
             // AI Summary (if available)
-            if (parsedEvent.summary != null)
-              _buildAISummarySection(context),
+            if (parsedEvent.summary != null) _buildAISummarySection(context),
             const SizedBox(height: AppSpacing.md),
 
             // Event Title
@@ -67,12 +68,14 @@ class EventCardScreen extends HookConsumerWidget {
             const SizedBox(height: AppSpacing.md),
 
             // Smart Reminders (Pro Feature)
-            if (appState.subscriptionStatus.isPro && parsedEvent.suggestedReminders != null)
+            if (appState.subscriptionStatus.isPro &&
+                parsedEvent.suggestedReminders != null)
               _buildSmartRemindersSection(context),
             const SizedBox(height: AppSpacing.md),
 
             // Key Points (if available)
-            if (parsedEvent.keyPoints != null && parsedEvent.keyPoints!.isNotEmpty)
+            if (parsedEvent.keyPoints != null &&
+                parsedEvent.keyPoints!.isNotEmpty)
               _buildKeyPointsSection(context),
             const SizedBox(height: AppSpacing.md),
 
@@ -91,18 +94,25 @@ class EventCardScreen extends HookConsumerWidget {
   Widget _buildAIStatusBadge(BuildContext context) {
     final confidence = parsedEvent.confidence;
     final confidenceText = '${(confidence * 100).round()}% confidence';
-    final hasEnhancedFeatures = parsedEvent.summary != null || 
-                               parsedEvent.suggestedReminders != null ||
-                               parsedEvent.keyPoints != null;
-    
+    final hasEnhancedFeatures =
+        parsedEvent.summary != null ||
+        parsedEvent.suggestedReminders != null ||
+        parsedEvent.keyPoints != null;
+
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.getConfidenceColor(confidence).withValues(alpha: 0.1),
+            color: AppColors.getConfidenceColor(
+              confidence,
+            ).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.getConfidenceColor(confidence).withValues(alpha: 0.3)),
+            border: Border.all(
+              color: AppColors.getConfidenceColor(
+                confidence,
+              ).withValues(alpha: 0.3),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -153,15 +163,18 @@ class EventCardScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildEventTitleField(BuildContext context, TextEditingController controller) {
+  Widget _buildEventTitleField(
+    BuildContext context,
+    TextEditingController controller,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Title',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
@@ -194,9 +207,9 @@ class EventCardScreen extends HookConsumerWidget {
       children: [
         Text(
           'Date & Time',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.sm),
         Container(
@@ -208,7 +221,7 @@ class EventCardScreen extends HookConsumerWidget {
             border: Border.all(color: AppColors.border),
           ),
           child: Text(
-            'July 23, 2024, 10:00 AM',
+            _formatDateTime(parsedEvent),
             style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
@@ -216,15 +229,18 @@ class EventCardScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildLocationSection(BuildContext context, TextEditingController controller) {
+  Widget _buildLocationSection(
+    BuildContext context,
+    TextEditingController controller,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Location',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
@@ -256,9 +272,9 @@ class EventCardScreen extends HookConsumerWidget {
       children: [
         Text(
           'Travel Time',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.sm),
         Container(
@@ -271,14 +287,10 @@ class EventCardScreen extends HookConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.directions_car,
-                color: AppColors.primary,
-                size: 20,
-              ),
+              Icon(Icons.directions_car, color: AppColors.primary, size: 20),
               const SizedBox(width: AppSpacing.sm),
               Text(
-                'Est. 25 min drive',
+                'Travel time calculation needed',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
@@ -301,77 +313,17 @@ class EventCardScreen extends HookConsumerWidget {
       children: [
         Text(
           'Related Resources',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.sm),
-        _buildResourceItem(
-          context,
-          'Project_Alpha_Brief.pdf',
-          'Suggested by AI',
-          Icons.picture_as_pdf,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _buildResourceItem(
-          context,
-          'Jane Doe',
-          'Suggested by AI',
-          Icons.person,
-        ),
+        // Related resources would be populated dynamically based on AI analysis
       ],
     );
   }
 
-  Widget _buildResourceItem(BuildContext context, String title, String subtitle, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              color: AppColors.iconPrimary,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.add_circle_outline,
-            color: AppColors.primary,
-            size: 20,
-          ),
-        ],
-      ),
-    );
-  }
+  // Resource item widget removed - no longer used
 
   Widget _buildSourceTextSection(BuildContext context) {
     return Column(
@@ -379,9 +331,9 @@ class EventCardScreen extends HookConsumerWidget {
       children: [
         Text(
           'Source Text',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.sm),
         Container(
@@ -393,9 +345,9 @@ class EventCardScreen extends HookConsumerWidget {
           ),
           child: Text(
             parsedEvent.originalText,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
         ),
       ],
@@ -416,11 +368,7 @@ class EventCardScreen extends HookConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.auto_awesome,
-                color: AppColors.primary,
-                size: 16,
-              ),
+              Icon(Icons.auto_awesome, color: AppColors.primary, size: 16),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 'AI Summary',
@@ -443,7 +391,7 @@ class EventCardScreen extends HookConsumerWidget {
 
   Widget _buildSmartRemindersSection(BuildContext context) {
     final reminders = parsedEvent.suggestedReminders ?? [];
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -451,9 +399,9 @@ class EventCardScreen extends HookConsumerWidget {
           children: [
             Text(
               'Smart Reminders',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: AppSpacing.sm),
             Container(
@@ -474,7 +422,9 @@ class EventCardScreen extends HookConsumerWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        ...reminders.take(3).map((reminder) => _buildReminderItem(context, reminder)),
+        ...reminders
+            .take(3)
+            .map((reminder) => _buildReminderItem(context, reminder)),
         if (reminders.length > 3)
           TextButton(
             onPressed: () {
@@ -489,7 +439,7 @@ class EventCardScreen extends HookConsumerWidget {
   Widget _buildReminderItem(BuildContext context, SmartReminder reminder) {
     final timeUntilEvent = reminder.reminderTime.difference(DateTime.now());
     final isUpcoming = timeUntilEvent.isNegative;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.sm),
@@ -513,7 +463,9 @@ class EventCardScreen extends HookConsumerWidget {
                 Text(
                   _formatReminderTime(reminder.reminderTime),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: isUpcoming ? AppColors.textSecondary : AppColors.primary,
+                    color: isUpcoming
+                        ? AppColors.textSecondary
+                        : AppColors.primary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -531,41 +483,43 @@ class EventCardScreen extends HookConsumerWidget {
 
   Widget _buildKeyPointsSection(BuildContext context) {
     final keyPoints = parsedEvent.keyPoints ?? [];
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Key Points',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: AppSpacing.sm),
-        ...keyPoints.map((point) => Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 6),
-                width: 4,
-                height: 4,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
+        ...keyPoints.map(
+          (point) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 6),
+                  width: 4,
+                  height: 4,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  point,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    point,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        )),
+        ),
       ],
     );
   }
@@ -583,10 +537,56 @@ class EventCardScreen extends HookConsumerWidget {
     }
   }
 
+  String _formatDateTime(ParsedEvent event) {
+    if (event.date == null) {
+      return 'Date and time to be determined';
+    }
+
+    final date = event.date!;
+    final startTime = event.startTime;
+    final endTime = event.endTime;
+
+    // Format date
+    final months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    String dateStr = '${months[date.month - 1]} ${date.day}, ${date.year}';
+
+    // Add time if available
+    if (startTime != null) {
+      String timeStr = _formatTimeOfDay(startTime);
+      if (endTime != null) {
+        timeStr += ' - ${_formatTimeOfDay(endTime)}';
+      }
+      dateStr += ', $timeStr';
+    }
+
+    return dateStr;
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '${hour == 0 ? 12 : hour}:$minute $period';
+  }
+
   String _formatReminderTime(DateTime reminderTime) {
     final now = DateTime.now();
     final difference = reminderTime.difference(now);
-    
+
     if (difference.isNegative) {
       return 'Past reminder';
     } else if (difference.inDays > 0) {
@@ -618,7 +618,7 @@ class EventCardScreen extends HookConsumerWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    parsedEvent.suggestedReminders != null 
+                    parsedEvent.suggestedReminders != null
                         ? 'Event saved with ${parsedEvent.suggestedReminders!.length} smart reminders!'
                         : 'Event saved!',
                   ),

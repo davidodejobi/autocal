@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/schedule_event.dart';
-import '../screens/add_event_screen.dart';
+// import '../screens/add_event_screen.dart'; // No longer needed
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 import 'schedule_calendar_header.dart';
@@ -106,82 +106,14 @@ class _ScheduleViewState extends State<ScheduleView> {
               ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppSpacing.lg),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        AddEventScreen(selectedDate: widget.daySchedule.date),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Add Event'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-            ),
+            // Events will be added through AI processing or manual entry
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCurrentTimeIndicator() {
-    final now = DateTime.now();
-    final currentTimeString =
-        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Row(
-        children: [
-          // Time
-          Container(
-            width: 80,
-            padding: const EdgeInsets.only(right: AppSpacing.md),
-            child: Text(
-              currentTimeString,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-
-          // Line indicator
-          Expanded(
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
-                  child: Container(
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Current time indicator method removed - no longer used
 }
 
 /// Quick schedule overview widget for home screen

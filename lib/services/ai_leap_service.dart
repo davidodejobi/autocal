@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' show log;
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_leap_sdk/flutter_leap_sdk.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/parsed_event.dart';
+import '../utils/ai_response_parser.dart';
 
 /// Service for managing AI functionality using Flutter LEAP SDK
 class AILeapService {
@@ -496,221 +495,43 @@ Extract calendar event information from this image. Additional context: $additio
     String aiResponse,
   ) {
     try {
-      // Extract JSON from AI response (handle cases where AI adds extra text)
-      final jsonMatch = RegExp(r'\{.*\}', dotAll: true).firstMatch(aiResponse);
-      if (jsonMatch == null) {
-        print('No JSON found in AI response: $aiResponse');
+      // Use the robust JSON extraction method
+      final json = AIResponseParser.getJsonContent(aiResponse);
+
+      if (json == null || json.isEmpty) {
+        print('Failed to extract JSON from AI response: $aiResponse');
         return null;
       }
 
-      final jsonString = jsonMatch.group(0)!;
-      final Map<String, dynamic> json = _parseJsonSafely(jsonString);
+      log('Successfully extracted JSON: $json');
 
-      if (json.isEmpty) {
-        print('Failed to parse JSON from AI response');
-        return null;
-      }
+      // Use ParsedEvent.fromJson to handle the parsing
+      final parsedEvent = ParsedEvent.fromJson(json, originalText);
 
-      // Parse date and time fields
-      DateTime? eventDate;
-      TimeOfDay? startTime;
-      TimeOfDay? endTime;
-      DateTime? endDate;
-
-      // Parse start date
-      if (json['startDate'] != null) {
-        try {
-          eventDate = DateTime.parse(json['startDate'] as String);
-        } catch (e) {
-          print('Failed to parse start date: ${json['startDate']}');
-        }
-      }
-
-      // Parse start time
-      if (json['startTime'] != null) {
-        try {
-          final timeParts = (json['startTime'] as String).split(':');
-          if (timeParts.length >= 2) {
-            startTime = TimeOfDay(
-              hour: int.parse(timeParts[0]),
-              minute: int.parse(timeParts[1]),
-            );
-          }
-        } catch (e) {
-          print('Failed to parse start time: ${json['startTime']}');
-        }
-      }
-
-      // Parse end time
-      if (json['endTime'] != null) {
-        try {
-          final timeParts = (json['endTime'] as String).split(':');
-          if (timeParts.length >= 2) {
-            endTime = TimeOfDay(
-              hour: int.parse(timeParts[0]),
-              minute: int.parse(timeParts[1]),
-            );
-          }
-        } catch (e) {
-          print('Failed to parse end time: ${json['endTime']}');
-        }
-      }
-
-      // Parse end date
-      if (json['endDate'] != null && json['endDate'] != 'null') {
-        try {
-          endDate = DateTime.parse(json['endDate'] as String);
-        } catch (e) {
-          print('Failed to parse end date: ${json['endDate']}');
-        }
-      }
-
-      // Parse event type
-      EventType? eventType;
-      if (json['eventType'] != null) {
-        try {
-          eventType = EventType.values.firstWhere(
-            (type) => type.name == json['eventType'],
-            orElse: () => EventType.other,
+      // Generate smart reminders if not provided but we have date and event type
+      if (parsedEvent.suggestedReminders == null ||
+          parsedEvent.suggestedReminders!.isEmpty) {
+        if (parsedEvent.date != null && parsedEvent.eventType != null) {
+          final updatedEvent = parsedEvent.copyWith(
+            suggestedReminders: _generateSmartReminders(
+              parsedEvent.date!,
+              parsedEvent.eventType!,
+            ),
           );
-        } catch (e) {
-          eventType = EventType.other;
-        }
-      }
-
-      // Parse importance
-      EventImportance? importance;
-      if (json['importance'] != null) {
-        try {
-          importance = EventImportance.values.firstWhere(
-            (imp) => imp.name == json['importance'],
-            orElse: () => EventImportance.medium,
+          // Update metadata to include the AI response
+          return updatedEvent.copyWith(
+            metadata: {...updatedEvent.metadata, 'response': aiResponse},
           );
-        } catch (e) {
-          importance = EventImportance.medium;
         }
       }
 
-      // Parse suggested reminders
-      List<SmartReminder>? suggestedReminders;
-      if (json['suggestedReminders'] != null &&
-          eventDate != null &&
-          eventType != null) {
-        try {
-          final remindersList = json['suggestedReminders'] as List<dynamic>;
-          suggestedReminders = remindersList
-              .map((reminderJson) {
-                try {
-                  return SmartReminder.fromJson(
-                    reminderJson as Map<String, dynamic>,
-                  );
-                } catch (e) {
-                  print('Failed to parse reminder: $reminderJson');
-                  return null;
-                }
-              })
-              .where((reminder) => reminder != null)
-              .cast<SmartReminder>()
-              .toList();
-
-          // If parsing failed or no reminders, generate smart defaults
-          if (suggestedReminders.isEmpty) {
-            suggestedReminders = _generateSmartReminders(eventDate, eventType);
-          }
-        } catch (e) {
-          print('Failed to parse reminders, generating defaults: $e');
-          suggestedReminders = _generateSmartReminders(eventDate, eventType);
-        }
-      } else if (eventDate != null && eventType != null) {
-        // Generate smart reminders if not provided
-        suggestedReminders = _generateSmartReminders(eventDate, eventType);
-      }
-
-      // Parse key points
-      List<String>? keyPoints;
-      if (json['keyPoints'] != null) {
-        try {
-          keyPoints = (json['keyPoints'] as List<dynamic>)
-              .map((point) => point.toString())
-              .toList();
-        } catch (e) {
-          print('Failed to parse key points: ${json['keyPoints']}');
-        }
-      }
-
-      // Get confidence, default to 0.5 if not provided or invalid
-      double confidence = 0.5;
-      if (json['confidence'] != null) {
-        try {
-          confidence = (json['confidence'] as num).toDouble();
-          // Ensure confidence is between 0 and 1
-          confidence = confidence.clamp(0.0, 1.0);
-        } catch (e) {
-          print('Failed to parse confidence: ${json['confidence']}');
-        }
-      }
-
-      return ParsedEvent(
-        title: json['title'] as String?,
-        date: eventDate,
-        startTime: startTime,
-        endTime: endTime,
-        location: json['location'] as String?,
-        originalText: originalText,
-        confidence: confidence,
-        metadata: {
-          'aiGenerated': true,
-          'response': aiResponse,
-          'parsedJson': json,
-        },
-        // Enhanced AI fields
-        summary: json['summary'] as String?,
-        description: json['description'] as String?,
-        endDate: endDate,
-        eventType: eventType,
-        importance: importance,
-        suggestedReminders: suggestedReminders,
-        keyPoints: keyPoints,
+      // Update metadata to include the AI response
+      return parsedEvent.copyWith(
+        metadata: {...parsedEvent.metadata, 'response': aiResponse},
       );
     } catch (e) {
       print('Failed to parse enhanced AI response: $e');
       return null;
-    }
-  }
-
-  /// Safely parse JSON string with error handling
-  Map<String, dynamic> _parseJsonSafely(String jsonString) {
-    try {
-      // First try to parse as-is
-      return Map<String, dynamic>.from(
-        const JsonDecoder().convert(jsonString) as Map<String, dynamic>,
-      );
-    } catch (e) {
-      try {
-        // Try to clean up common JSON issues
-        String cleanedJson = jsonString
-            .replaceAll(
-              RegExp(r'[\x00-\x1F\x7F]'),
-              '',
-            ) // Remove control characters
-            .replaceAll(
-              RegExp(r',\s*}'),
-              '}',
-            ) // Remove trailing commas in objects
-            .replaceAll(
-              RegExp(r',\s*]'),
-              ']',
-            ) // Remove trailing commas in arrays
-            .trim();
-
-        return Map<String, dynamic>.from(
-          const JsonDecoder().convert(cleanedJson) as Map<String, dynamic>,
-        );
-      } catch (e2) {
-        print('Failed to parse JSON even after cleaning: $e2');
-        print('Original JSON: $jsonString');
-        return {};
-      }
     }
   }
 

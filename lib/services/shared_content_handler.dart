@@ -47,22 +47,24 @@ class SharedContentHandler {
       _initializeDio();
 
       // Listen for shared media (including text and images) when app is already running
-      _mediaStreamSubscription =
-          ReceiveSharingIntent.instance.getMediaStream().listen(
-        (List<SharedMediaFile> files) {
-          _handleSharedMediaFiles(files);
-        },
-        onError: (err) {
-          _logError('Error receiving shared media stream', err);
-        },
-      );
+      _mediaStreamSubscription = ReceiveSharingIntent.instance
+          .getMediaStream()
+          .listen(
+            (List<SharedMediaFile> files) {
+              _handleSharedMediaFiles(files);
+            },
+            onError: (err) {
+              _logError('Error receiving shared media stream', err);
+            },
+          );
 
       // Also initialize share_handler for better compatibility
       await _initializeShareHandler();
 
       // Get any shared media when app is launched from sharing
-      final List<SharedMediaFile> initialFiles =
-          await ReceiveSharingIntent.instance.getInitialMedia();
+      final List<SharedMediaFile> initialFiles = await ReceiveSharingIntent
+          .instance
+          .getInitialMedia();
 
       if (initialFiles.isNotEmpty) {
         await _handleSharedMediaFiles(initialFiles);
@@ -79,40 +81,45 @@ class SharedContentHandler {
 
   /// Initialize Dio HTTP client with proper configuration
   void _initializeDio() {
-    _dio = Dio(BaseOptions(
-      connectTimeout: Duration(seconds: _urlTimeoutSeconds),
-      receiveTimeout: Duration(seconds: _urlTimeoutSeconds),
-      sendTimeout: Duration(seconds: _urlTimeoutSeconds),
-      maxRedirects: 5,
-      followRedirects: true,
-      headers: {
-        'User-Agent': 'AutoCal/1.0.0 (Mobile App)',
-        'Accept':
-            'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-      },
-    ));
+    _dio = Dio(
+      BaseOptions(
+        connectTimeout: Duration(seconds: _urlTimeoutSeconds),
+        receiveTimeout: Duration(seconds: _urlTimeoutSeconds),
+        sendTimeout: Duration(seconds: _urlTimeoutSeconds),
+        maxRedirects: 5,
+        followRedirects: true,
+        headers: {
+          'User-Agent': 'AutoCal/1.0.0 (Mobile App)',
+          'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        },
+      ),
+    );
 
     // Add interceptors for better error handling and logging
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) {
-        _logInfo('HTTP Request: ${options.method} ${options.uri}');
-        handler.next(options);
-      },
-      onResponse: (response, handler) {
-        _logInfo(
-            'HTTP Response: ${response.statusCode} for ${response.requestOptions.uri}');
-        handler.next(response);
-      },
-      onError: (error, handler) {
-        _logError('HTTP Error: ${error.message}', error);
-        handler.next(error);
-      },
-    ));
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          _logInfo('HTTP Request: ${options.method} ${options.uri}');
+          handler.next(options);
+        },
+        onResponse: (response, handler) {
+          _logInfo(
+            'HTTP Response: ${response.statusCode} for ${response.requestOptions.uri}',
+          );
+          handler.next(response);
+        },
+        onError: (error, handler) {
+          _logError('HTTP Error: ${error.message}', error);
+          handler.next(error);
+        },
+      ),
+    );
   }
 
   /// Initialize share_handler for better share menu compatibility
@@ -149,10 +156,19 @@ class SharedContentHandler {
       try {
         switch (file.type) {
           case SharedMediaType.text:
+            _logInfo(
+              'Received shared text via receive_sharing_intent: ${file.path}',
+            );
             await _handleSharedText(file.path);
             break;
           case SharedMediaType.image:
+            _logInfo(
+              'Received shared image via receive_sharing_intent: ${file.path}',
+            );
             await _handleSharedImage(file);
+            _logInfo(
+              'Received shared image via receive_sharing_intent: ${file.path}',
+            );
             break;
           case SharedMediaType.video:
             _logInfo('Video sharing not supported: ${file.path}');
@@ -185,7 +201,8 @@ class SharedContentHandler {
         for (final attachment in media.attachments!) {
           if (attachment?.type == SharedAttachmentType.image) {
             _logInfo(
-                'Received shared image via share_handler: ${attachment?.path}');
+              'Received shared image via share_handler: ${attachment?.path}',
+            );
             // TODO: Handle image attachments
           } else {
             _logInfo('Unsupported attachment type: ${attachment?.type}');
@@ -201,7 +218,8 @@ class SharedContentHandler {
   Future<void> _handleSharedText(String text) async {
     if (_ref == null) {
       throw const SharedContentException(
-          'SharedContentHandler not initialized');
+        'SharedContentHandler not initialized',
+      );
     }
 
     try {
@@ -252,7 +270,9 @@ class SharedContentHandler {
     } catch (e) {
       _logError('Error processing text content', e);
       throw SharedContentException(
-          'Failed to parse text content', e.toString());
+        'Failed to parse text content',
+        e.toString(),
+      );
     }
   }
 
@@ -260,7 +280,8 @@ class SharedContentHandler {
   Future<void> _handleSharedImage(SharedMediaFile imageFile) async {
     if (_ref == null) {
       throw const SharedContentException(
-          'SharedContentHandler not initialized');
+        'SharedContentHandler not initialized',
+      );
     }
 
     try {
@@ -277,7 +298,8 @@ class SharedContentHandler {
       final file = File(imageFile.path);
       if (!await file.exists()) {
         throw SharedContentException(
-            'Image file does not exist: ${imageFile.path}');
+          'Image file does not exist: ${imageFile.path}',
+        );
       }
 
       // Check file size (limit to reasonable size for processing)
@@ -298,7 +320,9 @@ class SharedContentHandler {
       _logError('Error handling shared image: ${imageFile.path}', e);
       if (e is! SharedContentException) {
         throw SharedContentException(
-            'Failed to process shared image', e.toString());
+          'Failed to process shared image',
+          e.toString(),
+        );
       }
       rethrow;
     }
@@ -322,7 +346,9 @@ class SharedContentHandler {
       _logError('Error handling shared URL: $url', e);
       if (e is! SharedContentException) {
         throw SharedContentException(
-            'Failed to handle shared URL', e.toString());
+          'Failed to handle shared URL',
+          e.toString(),
+        );
       }
       rethrow;
     }
@@ -340,7 +366,8 @@ class SharedContentHandler {
       // For now, just return empty string
       // When OCR is implemented, extracted text can be processed like regular text
       _logInfo(
-          'OCR text extraction from image not yet implemented: $imagePath');
+        'OCR text extraction from image not yet implemented: $imagePath',
+      );
       return '';
     } catch (e) {
       _logError('Error in OCR text extraction', e);
@@ -383,14 +410,16 @@ class SharedContentHandler {
       if (!contentType.toLowerCase().contains('text/html') &&
           !contentType.toLowerCase().contains('text/plain')) {
         _logInfo(
-            'Non-text content type: $contentType, attempting to extract anyway');
+          'Non-text content type: $contentType, attempting to extract anyway',
+        );
       }
 
       // Extract text from HTML or return plain text
       final extractedText = _extractTextFromHtml(responseData);
 
       _logInfo(
-          'Successfully extracted ${extractedText.length} characters from URL');
+        'Successfully extracted ${extractedText.length} characters from URL',
+      );
       return extractedText;
     } on DioException catch (e) {
       // Handle Dio-specific exceptions
@@ -421,7 +450,9 @@ class SharedContentHandler {
       }
       _logError('Error extracting text from URL: $url', e);
       throw SharedContentException(
-          'Failed to extract text from URL', e.toString());
+        'Failed to extract text from URL',
+        e.toString(),
+      );
     }
   }
 
@@ -431,13 +462,17 @@ class SharedContentHandler {
       // Simple HTML text extraction (basic implementation)
       // Remove script and style tags
       String text = html.replaceAll(
-          RegExp(r'<script[^>]*>.*?</script>',
-              caseSensitive: false, dotAll: true),
-          '');
+        RegExp(
+          r'<script[^>]*>.*?</script>',
+          caseSensitive: false,
+          dotAll: true,
+        ),
+        '',
+      );
       text = text.replaceAll(
-          RegExp(r'<style[^>]*>.*?</style>',
-              caseSensitive: false, dotAll: true),
-          '');
+        RegExp(r'<style[^>]*>.*?</style>', caseSensitive: false, dotAll: true),
+        '',
+      );
 
       // Remove HTML tags
       text = text.replaceAll(RegExp(r'<[^>]*>'), ' ');

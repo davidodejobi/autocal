@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_leap_sdk/flutter_leap_sdk.dart';
+// import 'package:flutter_leap_sdk/flutter_leap_sdk.dart'; // Removed - not needed after cleanup
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -67,23 +67,7 @@ class AIEventScreen extends HookConsumerWidget {
               _buildAIStatusCard(context, aiServiceState, ref),
               const SizedBox(height: 16),
 
-              // Debug Test Buttons (remove in production)
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _debugAIStatus(aiService, ref),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Debug AI Status'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ),
-              const SizedBox(height: 16),
+              // Debug buttons removed for production
 
               // Option Cards
               _buildOptionCard(
@@ -794,75 +778,9 @@ class AIEventScreen extends HookConsumerWidget {
     return modelInfo?.type == AIModelType.vision;
   }
 
-  Future<void> _debugAIStatus(AILeapService aiService, WidgetRef ref) async {
-    log('🔍 === AI DEBUG STATUS ===');
+  // Debug method removed for production
 
-    try {
-      // Check AI service initialization
-      final isInitialized = await aiService.isInitialized;
-      log('🔧 AI Service Initialized: $isInitialized');
+  // Test methods removed for production
 
-      // Check downloaded models
-      final downloadedModels = await aiService.getDownloadedModels();
-      log('📥 Downloaded Models: $downloadedModels');
-
-      // Check AI service state
-      final aiServiceState = ref.read(aiServiceStateProvider);
-      log('📊 AI Service State:');
-      log('   - isInitialized: ${aiServiceState.isInitialized}');
-      log('   - currentModelId: ${aiServiceState.currentModelId}');
-      log('   - downloadedModels: ${aiServiceState.downloadedModels}');
-      log('   - isLoading: ${aiServiceState.isLoading}');
-      log('   - error: ${aiServiceState.error}');
-
-      // Try to get SDK status directly
-      try {
-        final sdkModels = await FlutterLeapSdkService.getDownloadedModels();
-        log('🔧 SDK Downloaded Models: $sdkModels');
-      } catch (e) {
-        log('❌ SDK Error: $e');
-      }
-    } catch (e) {
-      log('❌ Debug Error: $e');
-    }
-
-    log('🔍 === END DEBUG ===');
-  }
-
-  // Future<void> _testAIService(AILeapService aiService, WidgetRef ref) async {
-  //   log('Testing AI service...');
-
-  //   try {
-  //     final testText = "Meeting tomorrow at 2 PM";
-  //     log('Testing with simple text: "$testText"');
-
-  //     final result = await aiService.parseTextWithAI(testText);
-  //     log('Test result: $result');
-
-  //     // Just log the results instead of showing snackbars
-  //     if (result != null) {
-  //       log('✅ AI Test Success! Parsed: ${result.title}');
-  //     } else {
-  //       log('❌ AI Test Failed - returned null');
-  //     }
-  //   } catch (e) {
-  //     log('❌ AI Test Error: $e');
-  //   }
-  // }
-
-  ParsedEvent? _createFallbackEvent(String text) {
-    // Simple fallback parsing when AI fails
-    log('Creating fallback event for: "$text"');
-
-    return ParsedEvent(
-      title: text.length > 50 ? '${text.substring(0, 47)}...' : text,
-      originalText: text,
-      confidence: 0.3, // Low confidence for fallback
-      metadata: {'fallback': true, 'reason': 'AI parsing failed'},
-      summary: 'Fallback event created from user input',
-      description: text,
-      eventType: EventType.other,
-      importance: EventImportance.medium,
-    );
-  }
+  // Fallback event creation method removed - handled elsewhere
 }
