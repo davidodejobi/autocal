@@ -7,6 +7,7 @@ import '../providers/event_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../screens/add_event_screen.dart';
 import '../screens/ai_event_screen.dart';
+import '../screens/ai_test_screen.dart';
 import '../screens/event_card_screen.dart';
 import '../screens/settings_screen.dart';
 import '../utils/app_colors.dart';
@@ -101,6 +102,23 @@ class HomeScreen extends HookConsumerWidget {
             ),
             // Add Event Options - only show on home tab
             if (selectedIndex.value == 0 && isNavBarVisible.value) ...[
+              // AI Test FAB
+              Positioned(
+                right: 20,
+                bottom: 260, // Position above AI Event FAB
+                child: FloatingActionButton(
+                  heroTag: "ai_test_fab",
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AITestScreen(),
+                      ),
+                    );
+                  },
+                  backgroundColor: Colors.purple,
+                  child: const Icon(Icons.science, color: Colors.white),
+                ),
+              ),
               // AI Event FAB
               Positioned(
                 right: 20,

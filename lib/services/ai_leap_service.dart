@@ -7,56 +7,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_leap_sdk/flutter_leap_sdk.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/action_item.dart';
 import '../models/parsed_event.dart';
-import '../models/processed_notes.dart';
 
 /// Service for managing AI functionality using Flutter LEAP SDK
 class AILeapService {
   bool _isInitialized = false;
   String? _currentModelPath;
-  Conversation? _textParsingConversation;
-  Conversation? _meetingNotesConversation;
+  Conversation? _visionConversation;
 
-  /// Available models with their display names and file names
+  /// Available vision models for image processing and analysis
   static const Map<String, AIModelInfo> availableModels = {
-    'LFM2-350M': AIModelInfo(
-      id: 'LFM2-350M',
-      displayName: 'Swift Parser',
-      fileName: 'LFM2-350M-8da4w_output_8da8w-seq_4096.bundle',
-      size: '322 MB',
-      sizeBytes: 322 * 1024 * 1024,
-      description:
-          'Fastest model for quick text parsing and basic event extraction',
-      type: AIModelType.text,
-      strength: AIModelStrength.basic,
-    ),
-    'LFM2-700M': AIModelInfo(
-      id: 'LFM2-700M',
-      displayName: 'Smart Analyzer',
-      fileName: 'LFM2-700M-8da4w_output_8da8w-seq_4096.bundle',
-      size: '610 MB',
-      sizeBytes: 610 * 1024 * 1024,
-      description:
-          'Balanced model for enhanced text understanding and meeting analysis',
-      type: AIModelType.text,
-      strength: AIModelStrength.intermediate,
-    ),
-    'LFM2-1.2B': AIModelInfo(
-      id: 'LFM2-1.2B',
-      displayName: 'Pro Reasoner',
-      fileName: 'LFM2-1.2B-8da4w_output_8da8w-seq_4096.bundle',
-      size: '924 MB',
-      sizeBytes: 924 * 1024 * 1024,
-      description:
-          'Most capable text model for complex reasoning and detailed analysis',
-      type: AIModelType.text,
-      strength: AIModelStrength.advanced,
-    ),
     'LFM2-VL-450M': AIModelInfo(
-      id: 'LFM2-VL-450M',
+      id: 'LFM2-VL-450M (Vision)',
       displayName: 'Vision Lite',
-      fileName: 'LFM2-VL-450M-vision.bundle',
+      fileName: 'LFM2-VL-450M_8da4w.bundle', // Updated to match SDK format
       size: '385 MB',
       sizeBytes: 385 * 1024 * 1024,
       description:
@@ -65,9 +29,9 @@ class AILeapService {
       strength: AIModelStrength.basic,
     ),
     'LFM2-VL-1.6B': AIModelInfo(
-      id: 'LFM2-VL-1.6B',
+      id: 'LFM2-VL-1.6B (Vision)',
       displayName: 'Vision Pro',
-      fileName: 'LFM2-VL-1.6B-vision.bundle',
+      fileName: 'LFM2-VL-1_6B_8da4w.bundle', // Updated to match SDK format
       size: '1.19 GB',
       sizeBytes: 1190 * 1024 * 1024,
       description:
@@ -101,9 +65,21 @@ class AILeapService {
       final modelInfo = availableModels[modelId];
       if (modelInfo == null) return false;
 
-      return await FlutterLeapSdkService.checkModelExists(modelInfo.fileName);
+      // Get all downloaded models and check if this model ID is in the list
+      final downloadedModels = await getDownloadedModels();
+      return downloadedModels.contains(modelId);
     } catch (e) {
       print('Error checking model existence: $e');
+      return false;
+    }
+  }
+
+  /// Check if a model exists by checking the SDK directly
+  Future<bool> checkModelExistsByPath(String modelPath) async {
+    try {
+      return await FlutterLeapSdkService.checkModelExists(modelPath);
+    } catch (e) {
+      print('Error checking model existence by path: $e');
       return false;
     }
   }
@@ -135,120 +111,166 @@ class AILeapService {
   /// Load a model for use
   Future<bool> loadModel(String modelId) async {
     try {
+      log('🔄 Loading model: $modelId');
       final modelInfo = availableModels[modelId];
-      if (modelInfo == null) return false;
+      if (modelInfo == null) {
+        log('❌ Model info not found for: $modelId');
+        return false;
+      }
+
+      log('📋 Model info: ${modelInfo.displayName} (${modelInfo.type.name})');
+      log('📁 Model file: ${modelInfo.fileName}');
 
       // Unload current model if any
       if (_currentModelPath != null) {
+        log('🔄 Unloading current model: $_currentModelPath');
         await FlutterLeapSdkService.unloadModel();
-        _textParsingConversation = null;
-        _meetingNotesConversation = null;
+        _visionConversation = null;
       }
 
-      await FlutterLeapSdkService.loadModel(modelPath: modelInfo.id);
+      // Get the actual downloaded models to find the correct path
+      final downloadedModels =
+          await FlutterLeapSdkService.getDownloadedModels();
+      log('📁 Available downloaded models: $downloadedModels');
 
-      _currentModelPath = modelInfo.id;
+      String? modelPath;
 
-      // Create specialized conversations
-      await _initializeConversations();
+      // For vision models, prioritize the (Vision) suffix paths
+      final possiblePaths = <String>[];
+
+      // Vision models need the (Vision) suffix for image processing capabilities
+      possiblePaths.addAll([
+        '${modelInfo.displayName} (Vision)', // e.g., "Vision Lite (Vision)"
+        '${modelInfo.id} (Vision)', // e.g., "LFM2-VL-450M (Vision)"
+      ]);
+
+      // Fallback paths (may not support image processing)
+      possiblePaths.addAll([
+        modelInfo.displayName, // e.g., "Vision Lite"
+        modelInfo.id, // e.g., "LFM2-VL-450M"
+        modelInfo.fileName, // e.g., "LFM2-VL-450M_8da4w.bundle"
+        modelInfo.fileName.replaceAll(
+          '.bundle',
+          '',
+        ), // Without .bundle extension
+      ]);
+
+      // Find the correct model path from downloaded models
+      for (final possiblePath in possiblePaths) {
+        if (downloadedModels.contains(possiblePath)) {
+          modelPath = possiblePath;
+          log('✅ Found matching model path: $modelPath');
+          break;
+        }
+      }
+
+      if (modelPath == null) {
+        log('❌ Could not find downloaded model for $modelId');
+        log('📋 Available models: $downloadedModels');
+        log('🔍 Tried paths: $possiblePaths');
+        return false;
+      }
+
+      log('🚀 Loading model with path: $modelPath');
+
+      try {
+        await FlutterLeapSdkService.loadModel(modelPath: modelPath);
+        log('✅ Model loaded successfully with path: $modelPath');
+      } catch (e) {
+        log('❌ Failed to load model with path "$modelPath": $e');
+
+        // Try alternative vision model paths
+        bool loaded = false;
+        log('👁️ Trying alternative vision model loading approaches...');
+
+        // Try remaining paths from our possiblePaths list
+        for (final alternativePath in possiblePaths) {
+          if (alternativePath != modelPath &&
+              downloadedModels.contains(alternativePath)) {
+            try {
+              log('🔄 Trying alternative vision model path: $alternativePath');
+              await FlutterLeapSdkService.loadModel(modelPath: alternativePath);
+              modelPath = alternativePath;
+              loaded = true;
+              log(
+                '✅ Vision model loaded with alternative path: $alternativePath',
+              );
+              break;
+            } catch (e2) {
+              log('❌ Alternative path "$alternativePath" failed: $e2');
+            }
+          }
+        }
+
+        if (!loaded) {
+          log('❌ All vision model loading attempts failed for: $modelId');
+          log(
+            '💡 Make sure you have downloaded the vision model with proper (Vision) suffix',
+          );
+          return false;
+        }
+      }
+
+      _currentModelPath = modelId;
+
+      // Warn if vision model loaded without (Vision) suffix
+      if (modelPath != null && !modelPath.contains('(Vision)')) {
+        log(
+          '⚠️ WARNING: Vision model loaded without (Vision) suffix: $modelPath',
+        );
+        log(
+          '⚠️ This may not support image processing. Consider redownloading the model.',
+        );
+      }
+
+      // Create vision conversation
+      log('🔧 Initializing vision conversation...');
+      await _initializeVisionConversation();
+      log('✅ Model loading complete');
 
       return true;
     } catch (e) {
-      print('Failed to load model: $e');
+      log('❌ Failed to load model: $e');
+      log('❌ Error type: ${e.runtimeType}');
+      if (e is ModelLoadingException) {
+        log('❌ Model loading exception: ${e.message} (${e.code})');
+      } else if (e is FlutterLeapSdkException) {
+        log('❌ SDK exception: ${e.message} (${e.code})');
+      }
       return false;
     }
   }
 
-  /// Initialize specialized conversations for different AI tasks
-  Future<void> _initializeConversations() async {
+  /// Initialize vision conversation for image processing
+  Future<void> _initializeVisionConversation() async {
     try {
-      // Text parsing conversation
-      _textParsingConversation = await FlutterLeapSdkService.createConversation(
+      // Vision conversation for image analysis
+      _visionConversation = await FlutterLeapSdkService.createConversation(
         systemPrompt:
-            '''You are an expert at parsing text to extract calendar event information. 
-Extract dates, times, locations, and event titles from shared text content.
-Respond with structured information in JSON format with fields: title, date, time, location, confidence.
-Be precise and only extract information that is clearly stated.''',
-      );
-
-      // Meeting notes conversation
-      _meetingNotesConversation = await FlutterLeapSdkService.createConversation(
-        systemPrompt:
-            '''You are an expert at analyzing meeting notes and extracting actionable information.
-From meeting notes, identify:
-1. Action items with assignees and due dates
-2. Key decisions made
-3. Follow-up meetings needed
-4. Important participants and their roles
-Respond with structured JSON containing these elements.''',
-      );
-    } catch (e) {
-      print('Failed to initialize conversations: $e');
-    }
-  }
-
-  /// Enhanced text parsing using AI with intelligent summarization and reminder scheduling
-  Future<ParsedEvent?> parseTextWithAI(String text) async {
-    if (!_isInitialized) {
-      print('AI service not initialized');
-      return null;
-    }
-
-    if (_textParsingConversation == null) {
-      print('Text parsing conversation not initialized, creating new one...');
-      try {
-        await _initializeConversations();
-        if (_textParsingConversation == null) {
-          print('Failed to create text parsing conversation');
-          return null;
-        }
-      } catch (e) {
-        print('Failed to initialize conversations: $e');
-        return null;
-      }
-    }
-
-    try {
-      final prompt =
-          '''Analyze this text and extract comprehensive calendar event information: "$text"
+            '''You are an expert at extracting calendar event information from images.
+Look for text in screenshots, photos of documents, calendars, or any visual content.
+Extract dates, times, locations, and event titles from the image.
 
 Please provide a detailed JSON response with:
 {
-  "summary": "Brief 1-2 sentence summary of what this text is about",
+  "summary": "Brief 1-2 sentence summary of what this image contains",
   "title": "Concise, clear event title (max 50 characters)",
   "startDate": "YYYY-MM-DD",
   "startTime": "HH:MM",
   "endDate": "YYYY-MM-DD or null if same day",
   "endTime": "HH:MM or null if not specified",
   "location": "location or null",
-  "description": "Detailed description extracted from the text",
+  "description": "Detailed description extracted from the image",
   "eventType": "meeting|appointment|deadline|social|travel|other",
   "importance": "high|medium|low",
-  "suggestedReminders": [
-    {"time": "YYYY-MM-DD HH:MM", "message": "Custom reminder message"},
-    {"time": "YYYY-MM-DD HH:MM", "message": "Another reminder"}
-  ],
   "confidence": 0.0-1.0,
   "keyPoints": ["important point 1", "important point 2"]
 }
 
-For reminders, intelligently suggest 2-4 reminders based on event type:
-- Meetings: 1 day before, 2 hours before, 15 minutes before
-- Deadlines: 1 week before, 3 days before, 1 day before
-- Appointments: 1 day before, 1 hour before
-- Social events: 3 days before, 1 day before
-- Travel: 1 week before, 2 days before, 4 hours before
-
-Make the reminder messages contextual and helpful.''';
-
-      final response = await _textParsingConversation!.generateResponse(prompt);
-
-      log('🤖🤖🤖🤖🤖 response: $response');
-
-      return _parseEnhancedAIResponse(text, response);
+Be precise and only extract information that is clearly visible in the image.''',
+      );
     } catch (e) {
-      print('AI text parsing failed: $e');
-      return null;
+      print('Failed to initialize vision conversation: $e');
     }
   }
 
@@ -257,47 +279,88 @@ Make the reminder messages contextual and helpful.''';
     Uint8List imageBytes, {
     String? additionalContext,
   }) async {
-    if (!_isInitialized || !_isVisionModelLoaded()) {
-      return null;
+    log('🔍 Starting image AI processing...');
+    log('_isInitialized: $_isInitialized');
+    log('_currentModelPath: $_currentModelPath');
+    log('imageBytes length: ${imageBytes.length}');
+
+    // Initialize AI service if not already done
+    if (!_isInitialized) {
+      log('🔧 AI service not initialized, initializing...');
+      await initialize();
+    }
+
+    // Check if vision conversation is initialized
+    if (_visionConversation == null) {
+      log('🔧 Vision conversation not initialized, creating new one...');
+      await _initializeVisionConversation();
+      if (_visionConversation == null) {
+        log('❌ Failed to create vision conversation');
+        return null;
+      }
     }
 
     try {
-      // Create a vision conversation if we don't have one or if current model is vision
-      final visionConversation = await FlutterLeapSdkService.createConversation(
-        systemPrompt:
-            '''You are an expert at extracting calendar event information from images.
+      final contextPrompt =
+          '''You are an expert at extracting calendar event information from images.
 Look for text in screenshots, photos of documents, calendars, or any visual content.
 Extract dates, times, locations, and event titles from the image.
-Respond with structured information in JSON format with fields: title, date, time, location, confidence.''',
-      );
 
-      final contextPrompt = additionalContext != null
-          ? 'Extract calendar event information from this image. Additional context: $additionalContext'
-          : 'Extract calendar event information from this image.';
+Please provide a detailed JSON response with:
+{
+  "summary": "Brief 1-2 sentence summary of what this image contains",
+  "title": "Concise, clear event title (max 50 characters)",
+  "startDate": "YYYY-MM-DD",
+  "startTime": "HH:MM",
+  "endDate": "YYYY-MM-DD or null if same day",
+  "endTime": "HH:MM or null if not specified",
+  "location": "location or null",
+  "description": "Detailed description extracted from the image",
+  "eventType": "meeting|appointment|deadline|social|travel|other",
+  "importance": "high|medium|low",
+  "confidence": 0.0-1.0,
+  "keyPoints": ["important point 1", "important point 2"]
+}
 
-      final response = await visionConversation.generateResponseWithImage(
+Be precise and only extract information that is clearly visible in the image.
+Extract calendar event information from this image. Additional context: $additionalContext''';
+
+      log('🤖 Sending prompt: "$contextPrompt"');
+      log('📷 Processing image with ${imageBytes.length} bytes...');
+
+      final response = await _visionConversation!.generateResponseWithImage(
         contextPrompt,
         imageBytes,
       );
 
-      // Clean up the conversation
-      await FlutterLeapSdkService.disposeConversation(visionConversation.id);
+      log('🤖 Vision AI response: $response');
 
-      return _parseEnhancedAIResponse('Image content', response);
+      final parsedResult = _parseEnhancedAIResponse('Image content', response);
+      log('📋 Parsed result: $parsedResult');
+
+      return parsedResult;
     } catch (e) {
-      print('AI image parsing failed: $e');
+      log('❌ AI image parsing failed: $e');
+      log('❌ Error type: ${e.runtimeType}');
+      if (e is ModelNotLoadedException) {
+        log('❌ Model not loaded exception: ${e.message}');
+      } else if (e is ModelLoadingException) {
+        log('❌ Model loading exception: ${e.message} (${e.code})');
+      } else if (e is FlutterLeapSdkException) {
+        log('❌ SDK exception: ${e.message} (${e.code})');
+      }
       return null;
     }
   }
 
-  /// Check if current model is a vision model
-  bool _isVisionModelLoaded() {
-    if (_currentModelPath == null) return false;
-    final modelInfo = availableModels[_currentModelPath];
-    return modelInfo?.type == AIModelType.vision;
-  }
+  // /// Check if current model is a vision model
+  // bool _isVisionModelLoaded() {
+  //   if (_currentModelPath == null) return false;
+  //   final modelInfo = availableModels[_currentModelPath];
+  //   return modelInfo?.type == AIModelType.vision;
+  // }
 
-  /// Get current model capabilities
+  /// Get current vision model capabilities
   List<String> getCurrentModelCapabilities() {
     if (_currentModelPath == null) return [];
 
@@ -306,75 +369,93 @@ Respond with structured information in JSON format with fields: title, date, tim
 
     final capabilities = <String>[];
 
-    // All models can do text processing
-    capabilities.add('Text parsing');
-    capabilities.add('Event extraction');
-    capabilities.add('Meeting analysis');
-
-    // Vision models have additional capabilities
-    if (modelInfo.type == AIModelType.vision) {
-      capabilities.add('Image analysis');
-      capabilities.add('Screenshot parsing');
-      capabilities.add('Document OCR');
-      capabilities.add('Visual reasoning');
-    }
+    // All vision models have these capabilities
+    capabilities.add('Image analysis');
+    capabilities.add('Screenshot parsing');
+    capabilities.add('Document OCR');
+    capabilities.add('Event extraction from images');
+    capabilities.add('Visual text recognition');
 
     // Advanced models have more capabilities
     if (modelInfo.strength == AIModelStrength.advanced) {
-      capabilities.add('Complex reasoning');
-      capabilities.add('Detailed insights');
-      capabilities.add('Context understanding');
+      capabilities.add('Complex visual reasoning');
+      capabilities.add('Detailed image insights');
+      capabilities.add('Advanced context understanding');
+      capabilities.add('Multi-element recognition');
+    } else {
+      capabilities.add('Basic visual reasoning');
+      capabilities.add('Standard image processing');
     }
 
     return capabilities;
   }
 
-  /// Process meeting notes with AI
-  Future<ProcessedNotes?> processMeetingNotes(String notes) async {
-    if (!_isInitialized || _meetingNotesConversation == null) {
-      return null;
-    }
-
-    try {
-      final prompt =
-          '''Analyze these meeting notes and extract structured information: "$notes"
-      
-Return JSON with:
-{
-  "actionItems": [{"description": "task", "assignee": "person", "dueDate": "YYYY-MM-DD"}],
-  "keyDecisions": ["decision 1", "decision 2"],
-  "participants": ["person 1", "person 2"],
-  "followUpNeeded": true/false,
-  "summary": "brief summary"
-}''';
-
-      final response = await _meetingNotesConversation!.generateResponse(
-        prompt,
-      );
-
-      return _parseNotesResponse(response);
-    } catch (e) {
-      print('AI notes processing failed: $e');
-      return null;
-    }
-  }
-
   /// Get list of downloaded models
   Future<List<String>> getDownloadedModels() async {
     try {
+      log('🔍 Checking for downloaded models...');
       final downloadedModels =
           await FlutterLeapSdkService.getDownloadedModels();
-      return downloadedModels.map((model) {
-        // Find the model ID by matching the filename
+      log('📁 Raw downloaded models from SDK: $downloadedModels');
+
+      final mappedModels = <String>[];
+
+      for (final model in downloadedModels) {
+        log('🔍 Mapping model file: $model');
+
+        // Try to find the model ID by matching various patterns
+        String? foundModelId;
+
         for (final entry in availableModels.entries) {
-          if (entry.value.fileName == model) {
-            return entry.key;
+          final modelId = entry.key;
+          final modelInfo = entry.value;
+
+          // Check multiple possible naming patterns
+          final patternsToCheck = [
+            modelInfo.fileName, // Full filename
+            modelInfo.id, // Model ID
+            modelInfo.displayName, // Display name
+            '${modelInfo.displayName} (Vision)', // Vision model format
+            modelInfo.fileName.replaceAll('.bundle', ''), // Without .bundle
+          ];
+
+          if (patternsToCheck.contains(model)) {
+            foundModelId = modelId;
+            log('✅ Found match: $model -> $modelId');
+            break;
           }
         }
-        return model; // Return filename if no match found
-      }).toList();
+
+        if (foundModelId != null) {
+          if (!mappedModels.contains(foundModelId)) {
+            mappedModels.add(foundModelId);
+          }
+        } else {
+          log('⚠️ No match found for: $model');
+          // For debugging, let's check what we have and try partial matches
+          for (final entry in availableModels.entries) {
+            final modelId = entry.key;
+            final modelInfo = entry.value;
+
+            // Try partial matches for debugging
+            if (model.contains(modelId) ||
+                model.contains(modelInfo.displayName) ||
+                modelInfo.fileName.contains(model)) {
+              log('🔍 Possible partial match: $model might be $modelId');
+              if (!mappedModels.contains(modelId)) {
+                mappedModels.add(modelId);
+                log('✅ Added based on partial match: $modelId');
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      log('📋 Final mapped models: $mappedModels');
+      return mappedModels;
     } catch (e) {
-      print('Failed to get downloaded models: $e');
+      log('❌ Failed to get downloaded models: $e');
       return [];
     }
   }
@@ -390,8 +471,7 @@ Return JSON with:
       // If this was the current model, unload it
       if (_currentModelPath == modelId) {
         _currentModelPath = null;
-        _textParsingConversation = null;
-        _meetingNotesConversation = null;
+        _visionConversation = null;
       }
 
       return true;
@@ -798,34 +878,6 @@ Return JSON with:
     return reminders;
   }
 
-  /// Parse AI notes response into ProcessedNotes
-  ProcessedNotes? _parseNotesResponse(String aiResponse) {
-    try {
-      // This is a simplified parser - in production, use a proper JSON parser
-      return ProcessedNotes(
-        actionItems: [
-          ActionItem(
-            id: 'ai_action_1',
-            description: 'Follow up on project timeline',
-            assignee: 'John Doe',
-            dueDate: DateTime.now().add(const Duration(days: 3)),
-            isCompleted: false,
-          ),
-        ],
-        participants: ['John Doe', 'Jane Smith'],
-        keyDecisions: [
-          'Approved budget increase',
-          'Moved deadline to next month',
-        ],
-        summary: 'Meeting focused on project timeline and budget adjustments.',
-        confidence: 0.88,
-      );
-    } catch (e) {
-      print('Failed to parse notes response: $e');
-      return null;
-    }
-  }
-
   /// Check if AI service is ready
   bool get isReady => _isInitialized && _currentModelPath != null;
 
@@ -833,21 +885,53 @@ Return JSON with:
   AIModelInfo? get currentModel =>
       _currentModelPath != null ? availableModels[_currentModelPath] : null;
 
+  /// Get diagnostic information for debugging
+  Future<Map<String, dynamic>> getDiagnosticInfo() async {
+    try {
+      final diagnostics = <String, dynamic>{
+        'isInitialized': _isInitialized,
+        'currentModelPath': _currentModelPath,
+        'hasVisionConversation': _visionConversation != null,
+        'availableModelIds': availableModels.keys.toList(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      try {
+        final sdkDownloadedModels =
+            await FlutterLeapSdkService.getDownloadedModels();
+        diagnostics['sdkDownloadedModels'] = sdkDownloadedModels;
+      } catch (e) {
+        diagnostics['sdkDownloadedModelsError'] = e.toString();
+      }
+
+      try {
+        final mappedDownloadedModels = await getDownloadedModels();
+        diagnostics['mappedDownloadedModels'] = mappedDownloadedModels;
+      } catch (e) {
+        diagnostics['mappedDownloadedModelsError'] = e.toString();
+      }
+
+      return diagnostics;
+    } catch (e) {
+      return {
+        'error': e.toString(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+    }
+  }
+
   /// Dispose resources
   Future<void> dispose() async {
     try {
-      if (_textParsingConversation != null) {
+      if (_visionConversation != null) {
         await FlutterLeapSdkService.disposeConversation(
-          _textParsingConversation!.id,
+          _visionConversation!.id,
         );
-      }
-      if (_meetingNotesConversation != null) {
-        await FlutterLeapSdkService.disposeConversation(
-          _meetingNotesConversation!.id,
-        );
+        _visionConversation = null;
       }
       if (_currentModelPath != null) {
         await FlutterLeapSdkService.unloadModel();
+        _currentModelPath = null;
       }
     } catch (e) {
       print('Error disposing AI service: $e');
@@ -879,25 +963,13 @@ class AIModelInfo {
 
   /// Get a user-friendly capability description
   String get capabilityDescription {
-    switch (type) {
-      case AIModelType.text:
-        switch (strength) {
-          case AIModelStrength.basic:
-            return 'Basic text parsing • Fast processing • Low memory usage';
-          case AIModelStrength.intermediate:
-            return 'Enhanced text analysis • Meeting insights • Balanced performance';
-          case AIModelStrength.advanced:
-            return 'Complex reasoning • Detailed analysis • Advanced features';
-        }
-      case AIModelType.vision:
-        switch (strength) {
-          case AIModelStrength.basic:
-            return 'Image text extraction • Screenshot parsing • Text + Vision';
-          case AIModelStrength.intermediate:
-            return 'Advanced image analysis • Document understanding • Multimodal';
-          case AIModelStrength.advanced:
-            return 'Complex visual reasoning • Advanced OCR • Full multimodal capabilities';
-        }
+    switch (strength) {
+      case AIModelStrength.basic:
+        return 'Image text extraction • Screenshot parsing • Basic vision processing';
+      case AIModelStrength.intermediate:
+        return 'Advanced image analysis • Document understanding • Enhanced OCR';
+      case AIModelStrength.advanced:
+        return 'Complex visual reasoning • Advanced OCR • Full multimodal capabilities';
     }
   }
 
@@ -914,8 +986,8 @@ class AIModelInfo {
   }
 }
 
-/// Model types
-enum AIModelType { text, vision }
+/// Model types - Vision only
+enum AIModelType { vision }
 
 /// Model strength levels
 enum AIModelStrength { basic, intermediate, advanced }
@@ -978,23 +1050,62 @@ class AIServiceStateNotifier extends StateNotifier<AIServiceState> {
   }
 
   Future<void> _initialize() async {
+    log('🚀 Starting AI service state initialization...');
     state = state.copyWith(isLoading: true);
 
     try {
       // Initialize the AI service
+      log('🔧 Initializing AI service...');
       final initialized = await _aiService.initialize();
+      log('✅ AI service initialized: $initialized');
 
       // Get downloaded models
+      log('📥 Getting downloaded models...');
       final downloadedModels = await _aiService.getDownloadedModels();
+      log('📋 Downloaded models: $downloadedModels');
 
       // Try to load a default model if available
       String? currentModelId;
       if (downloadedModels.isNotEmpty) {
-        // Load the first available model
-        final success = await _aiService.loadModel(downloadedModels.first);
-        if (success) {
-          currentModelId = downloadedModels.first;
+        log('🔄 Attempting to load models: $downloadedModels');
+
+        // Sort vision models by strength (basic first for faster loading)
+        final sortedModels = [...downloadedModels];
+        sortedModels.sort((a, b) {
+          final aInfo = AILeapService.availableModels[a];
+          final bInfo = AILeapService.availableModels[b];
+
+          // Sort by strength (basic < intermediate < advanced)
+          final aStrength = aInfo?.strength.index ?? 0;
+          final bStrength = bInfo?.strength.index ?? 0;
+          return aStrength.compareTo(bStrength);
+        });
+
+        log('📊 Sorted models for loading: $sortedModels');
+
+        for (final modelId in sortedModels) {
+          log('🔄 Attempting to load model: $modelId');
+          try {
+            final success = await _aiService.loadModel(modelId);
+            log('✅ Model loading result for $modelId: $success');
+            if (success) {
+              currentModelId = modelId;
+              log(
+                '✅ Successfully loaded and set current model to: $currentModelId',
+              );
+              break;
+            }
+          } catch (e) {
+            log('❌ Failed to load model $modelId: $e');
+            // Continue to next model
+          }
         }
+
+        if (currentModelId == null) {
+          log('⚠️ Could not load any of the downloaded models');
+        }
+      } else {
+        log('⚠️ No downloaded models found');
       }
 
       state = state.copyWith(
@@ -1003,7 +1114,12 @@ class AIServiceStateNotifier extends StateNotifier<AIServiceState> {
         currentModelId: currentModelId,
         isLoading: false,
       );
+      log('✅ AI service state initialization complete');
+      log(
+        '📊 Final state: initialized=$initialized, currentModel=$currentModelId, models=${downloadedModels.length}',
+      );
     } catch (e) {
+      log('❌ AI service state initialization failed: $e');
       state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
@@ -1039,15 +1155,19 @@ class AIServiceStateNotifier extends StateNotifier<AIServiceState> {
   }
 
   Future<void> loadModel(String modelId) async {
+    log('🔄 State notifier loading model: $modelId');
     state = state.copyWith(isLoading: true);
 
     try {
       final success = await _aiService.loadModel(modelId);
+      log('✅ State notifier model loading result: $success');
       state = state.copyWith(
         currentModelId: success ? modelId : null,
         isLoading: false,
       );
+      log('📊 Updated state: currentModel=${state.currentModelId}');
     } catch (e) {
+      log('❌ State notifier model loading error: $e');
       state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
@@ -1076,5 +1196,34 @@ class AIServiceStateNotifier extends StateNotifier<AIServiceState> {
 
   void clearError() {
     state = state.copyWith(error: null);
+  }
+
+  /// Manually initialize the AI service (for test page)
+  Future<void> initialize() async {
+    await _initialize();
+  }
+
+  /// Unload the current model
+  Future<void> unloadModel() async {
+    try {
+      await FlutterLeapSdkService.unloadModel();
+      state = state.copyWith(currentModelId: null);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  /// Refresh the downloaded models list
+  Future<void> refreshDownloadedModels() async {
+    try {
+      log('🔄 Refreshing downloaded models list...');
+      final downloadedModels = await _aiService.getDownloadedModels();
+      log('📋 Refreshed downloaded models: $downloadedModels');
+
+      state = state.copyWith(downloadedModels: downloadedModels);
+    } catch (e) {
+      log('❌ Failed to refresh downloaded models: $e');
+      state = state.copyWith(error: 'Failed to refresh models: $e');
+    }
   }
 }

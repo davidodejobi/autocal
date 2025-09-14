@@ -1,18 +1,15 @@
-import 'dart:io';
-
-import 'package:flutter_test/flutter_test.dart';
+import 'package:autocal/providers/event_provider.dart';
+import 'package:autocal/services/shared_content_handler.dart';
+import 'package:autocal/services/text_parser_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-
-import '../../lib/models/parsed_event.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/services/shared_content_handler.dart';
-import '../../lib/services/text_parser_service.dart';
 
 // Mock classes
 class MockWidgetRef extends Mock implements WidgetRef {}
+
 class MockEventNotifier extends Mock implements EventNotifier {}
+
 class MockTextParserService extends Mock implements TextParserService {}
 
 void main() {
@@ -27,7 +24,10 @@ void main() {
       test('should detect valid HTTP URLs', () {
         expect(handler.isUrlForTesting('http://example.com'), isTrue);
         expect(handler.isUrlForTesting('https://example.com'), isTrue);
-        expect(handler.isUrlForTesting('https://www.example.com/path?query=value'), isTrue);
+        expect(
+          handler.isUrlForTesting('https://www.example.com/path?query=value'),
+          isTrue,
+        );
       });
 
       test('should reject invalid URLs', () {
@@ -40,7 +40,8 @@ void main() {
 
     group('HTML Text Extraction', () {
       test('should extract text from simple HTML', () {
-        const html = '<html><body><h1>Meeting Tomorrow</h1><p>At 2 PM in Conference Room A</p></body></html>';
+        const html =
+            '<html><body><h1>Meeting Tomorrow</h1><p>At 2 PM in Conference Room A</p></body></html>';
         final result = handler.extractTextFromHtmlForTesting(html);
         expect(result, contains('Meeting Tomorrow'));
         expect(result, contains('At 2 PM in Conference Room A'));
@@ -69,7 +70,8 @@ void main() {
       });
 
       test('should decode HTML entities', () {
-        const html = '<p>Meeting &amp; Discussion at 3:00 PM &lt;Conference Room&gt;</p>';
+        const html =
+            '<p>Meeting &amp; Discussion at 3:00 PM &lt;Conference Room&gt;</p>';
         final result = handler.extractTextFromHtmlForTesting(html);
         expect(result, contains('Meeting & Discussion'));
         expect(result, contains('<Conference Room>'));

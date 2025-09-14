@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+import '../services/ai_leap_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
-import '../services/ai_leap_service.dart';
 
 // AI Model Management screen for Pro users
 class AIModelManagementScreen extends HookConsumerWidget {
@@ -19,9 +19,11 @@ class AIModelManagementScreen extends HookConsumerWidget {
       final modelId = entry.key;
       final modelInfo = entry.value;
       final isDownloaded = aiServiceState.downloadedModels.contains(modelId);
-      final isDownloading = aiServiceState.downloadProgress.containsKey(modelId);
+      final isDownloading = aiServiceState.downloadProgress.containsKey(
+        modelId,
+      );
       final isCurrent = aiServiceState.currentModelId == modelId;
-      
+
       String status;
       if (isCurrent) {
         status = 'ready';
@@ -54,6 +56,13 @@ class AIModelManagementScreen extends HookConsumerWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => aiServiceNotifier.refreshDownloadedModels(),
+            tooltip: 'Refresh Models',
+          ),
+        ],
       ),
       body: aiServiceState.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -64,8 +73,12 @@ class AIModelManagementScreen extends HookConsumerWidget {
                 children: [
                   // Error display
                   if (aiServiceState.error != null)
-                    _buildErrorCard(context, aiServiceState.error!, aiServiceNotifier),
-                  
+                    _buildErrorCard(
+                      context,
+                      aiServiceState.error!,
+                      aiServiceNotifier,
+                    ),
+
                   // Privacy Notice
                   _buildPrivacyNotice(context),
                   const SizedBox(height: AppSpacing.sectionSpacing),
@@ -82,12 +95,10 @@ class AIModelManagementScreen extends HookConsumerWidget {
                   const SizedBox(height: AppSpacing.md),
 
                   // Model List
-                  ...models.map((model) => _buildModelItem(
-                    context,
-                    ref,
-                    model,
-                    aiServiceNotifier,
-                  )),
+                  ...models.map(
+                    (model) =>
+                        _buildModelItem(context, ref, model, aiServiceNotifier),
+                  ),
                 ],
               ),
             ),
@@ -105,18 +116,14 @@ class AIModelManagementScreen extends HookConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.security,
-            color: AppColors.info,
-            size: 24,
-          ),
+          Icon(Icons.security, color: AppColors.info, size: 24),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
               'All processing happens on your device. No data is sent to servers.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.info,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.info),
             ),
           ),
         ],
@@ -124,7 +131,11 @@ class AIModelManagementScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildErrorCard(BuildContext context, String error, AIServiceStateNotifier notifier) {
+  Widget _buildErrorCard(
+    BuildContext context,
+    String error,
+    AIServiceStateNotifier notifier,
+  ) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -136,18 +147,14 @@ class AIModelManagementScreen extends HookConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.error_outline,
-            color: AppColors.error,
-            size: 24,
-          ),
+          Icon(Icons.error_outline, color: AppColors.error, size: 24),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
               error,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.error,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
             ),
           ),
           IconButton(
@@ -160,7 +167,10 @@ class AIModelManagementScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildStorageUsage(BuildContext context, AIServiceState aiServiceState) {
+  Widget _buildStorageUsage(
+    BuildContext context,
+    AIServiceState aiServiceState,
+  ) {
     // Calculate storage usage based on downloaded models
     int totalUsedBytes = 0;
     for (final modelId in aiServiceState.downloadedModels) {
@@ -169,18 +179,16 @@ class AIModelManagementScreen extends HookConsumerWidget {
         totalUsedBytes += modelInfo.sizeBytes;
       }
     }
-    
+
     const int totalAvailableBytes = 20 * 1024 * 1024 * 1024; // 20 GB
     final double usagePercentage = totalUsedBytes / totalAvailableBytes;
-    final String usedGB = (totalUsedBytes / (1024 * 1024 * 1024)).toStringAsFixed(1);
-    
+    final String usedGB = (totalUsedBytes / (1024 * 1024 * 1024))
+        .toStringAsFixed(1);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Storage Usage',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
+        Text('Storage Usage', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: AppSpacing.md),
         Container(
           width: double.infinity,
@@ -246,6 +254,43 @@ class AIModelManagementScreen extends HookConsumerWidget {
         children: [
           Row(
             children: [
+              Text(
+                model['name'] as String,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                model['strengthIndicator'] as String,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+              ),
+              if (model['type'] == 'vision') ...[
+                const SizedBox(width: AppSpacing.xs),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'VISION',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.info,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -253,12 +298,12 @@ class AIModelManagementScreen extends HookConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  model['type'] == 'vision' 
-                      ? Icons.visibility_outlined 
+                  model['type'] == 'vision'
+                      ? Icons.visibility_outlined
                       : Icons.psychology_outlined,
                   size: 24,
-                  color: model['type'] == 'vision' 
-                      ? AppColors.info 
+                  color: model['type'] == 'vision'
+                      ? AppColors.info
                       : AppColors.iconPrimary,
                 ),
               ),
@@ -269,40 +314,6 @@ class AIModelManagementScreen extends HookConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            model['name'] as String,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            model['strengthIndicator'] as String,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          if (model['type'] == 'vision') ...[
-                            const SizedBox(width: AppSpacing.xs),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.info.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'VISION',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: AppColors.info,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
                       Text(
                         model['size'] as String,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -323,7 +334,12 @@ class AIModelManagementScreen extends HookConsumerWidget {
                   ),
                 ),
               ),
-              _buildModelActionButton(context, status, modelId, aiServiceNotifier),
+              _buildModelActionButton(
+                context,
+                status,
+                modelId,
+                aiServiceNotifier,
+              ),
             ],
           ),
           if (isDownloading) ...[
@@ -345,7 +361,8 @@ class AIModelManagementScreen extends HookConsumerWidget {
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         GestureDetector(
-                          onTap: () => aiServiceNotifier.cancelDownload(modelId),
+                          onTap: () =>
+                              aiServiceNotifier.cancelDownload(modelId),
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
@@ -395,11 +412,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.check_circle,
-                size: 16,
-                color: AppColors.success,
-              ),
+              Icon(Icons.check_circle, size: 16, color: AppColors.success),
               const SizedBox(width: 4),
               Text(
                 'Ready',
@@ -417,18 +430,40 @@ class AIModelManagementScreen extends HookConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ElevatedButton(
-              onPressed: () => aiServiceNotifier.loadModel(modelId),
+              onPressed: () async {
+                // Show loading state and attempt to load model
+                try {
+                  await aiServiceNotifier.loadModel(modelId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Model $modelId loaded successfully'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to load model: $e'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text(
-                'Load',
-                style: TextStyle(fontSize: 11),
-              ),
+              child: const Text('Load', style: TextStyle(fontSize: 11)),
             ),
             const SizedBox(width: 4),
             ElevatedButton(
@@ -436,14 +471,14 @@ class AIModelManagementScreen extends HookConsumerWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.info,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text(
-                'Update',
-                style: TextStyle(fontSize: 11),
-              ),
+              child: const Text('Update', style: TextStyle(fontSize: 11)),
             ),
           ],
         );
@@ -457,10 +492,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           icon: const Icon(Icons.download, size: 16),
-          label: const Text(
-            'Download',
-            style: TextStyle(fontSize: 12),
-          ),
+          label: const Text('Download', style: TextStyle(fontSize: 12)),
         );
 
       case 'downloading':
@@ -474,10 +506,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          child: const Text(
-            'Download',
-            style: TextStyle(fontSize: 12),
-          ),
+          child: const Text('Download', style: TextStyle(fontSize: 12)),
         );
     }
   }
@@ -485,7 +514,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
   void _showModelDetails(BuildContext context, Map<String, dynamic> model) {
     final modelId = model['id'] as String;
     final modelInfo = AILeapService.availableModels[modelId];
-    
+
     if (modelInfo == null) return;
 
     showDialog(
@@ -494,11 +523,11 @@ class AIModelManagementScreen extends HookConsumerWidget {
         title: Row(
           children: [
             Icon(
-              model['type'] == 'vision' 
-                  ? Icons.visibility_outlined 
+              model['type'] == 'vision'
+                  ? Icons.visibility_outlined
                   : Icons.psychology_outlined,
-              color: model['type'] == 'vision' 
-                  ? AppColors.info 
+              color: model['type'] == 'vision'
+                  ? AppColors.info
                   : AppColors.primary,
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -518,9 +547,12 @@ class AIModelManagementScreen extends HookConsumerWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: model['type'] == 'vision' 
+                    color: model['type'] == 'vision'
                         ? AppColors.info.withValues(alpha: 0.1)
                         : AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -528,7 +560,9 @@ class AIModelManagementScreen extends HookConsumerWidget {
                   child: Text(
                     model['type'] == 'vision' ? 'VISION + TEXT' : 'TEXT ONLY',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: model['type'] == 'vision' ? AppColors.info : AppColors.primary,
+                      color: model['type'] == 'vision'
+                          ? AppColors.info
+                          : AppColors.primary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -541,23 +575,23 @@ class AIModelManagementScreen extends HookConsumerWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            
+
             // Size
             Text(
               'Size: ${model['size']}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: AppSpacing.sm),
-            
+
             // Description
             Text(
               modelInfo.description,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: AppSpacing.md),
-            
+
             // Capabilities
             Text(
               'Capabilities:',
@@ -568,7 +602,7 @@ class AIModelManagementScreen extends HookConsumerWidget {
               model['capabilities'] as String,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            
+
             if (model['type'] == 'vision') ...[
               const SizedBox(height: AppSpacing.md),
               Container(
@@ -579,18 +613,14 @@ class AIModelManagementScreen extends HookConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppColors.info,
-                      size: 16,
-                    ),
+                    Icon(Icons.info_outline, color: AppColors.info, size: 16),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         'Vision models can process both text and images, making them perfect for analyzing screenshots and documents.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.info,
-                        ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: AppColors.info),
                       ),
                     ),
                   ],

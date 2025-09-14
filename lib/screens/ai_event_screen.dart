@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_leap_sdk/flutter_leap_sdk.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -66,17 +67,22 @@ class AIEventScreen extends HookConsumerWidget {
               _buildAIStatusCard(context, aiServiceState, ref),
               const SizedBox(height: 16),
 
-              // Debug Test Button (remove in production)
-              if (aiServiceState.isInitialized &&
-                  aiServiceState.currentModelId != null)
-                ElevatedButton(
-                  onPressed: () => _testAIService(aiService, ref),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
+              // Debug Test Buttons (remove in production)
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _debugAIStatus(aiService, ref),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Debug AI Status'),
+                    ),
                   ),
-                  child: const Text('Test AI Service'),
-                ),
+                  const SizedBox(width: 8),
+                ],
+              ),
               const SizedBox(height: 16),
 
               // Option Cards
@@ -87,7 +93,8 @@ class AIEventScreen extends HookConsumerWidget {
                 icon: Icons.text_fields,
                 enabled:
                     aiServiceState.isInitialized &&
-                    aiServiceState.currentModelId != null,
+                    aiServiceState.currentModelId != null &&
+                    !_isVisionModelLoaded(aiServiceState.currentModelId),
                 onTap: () => _showTextInputDialog(
                   context,
                   textController,
@@ -507,21 +514,21 @@ class AIEventScreen extends HookConsumerWidget {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _processTextWithAI(
-                textController.text,
-                isProcessing,
-                processingType,
-                parsedEvent,
-                errorMessage,
-                aiService,
-                ref,
-              );
-            },
-            child: const Text('Process'),
-          ),
+          // ElevatedButton(
+          //   onPressed: () {
+          //     Navigator.pop(context);
+          //     _processTextWithAI(
+          //       textController.text,
+          //       isProcessing,
+          //       processingType,
+          //       parsedEvent,
+          //       errorMessage,
+          //       aiService,
+          //       ref,
+          //     );
+          //   },
+          //   child: const Text('Process'),
+          // ),
         ],
       ),
     );
@@ -589,80 +596,6 @@ class AIEventScreen extends HookConsumerWidget {
     }
   }
 
-  Future<void> _processTextWithAI(
-    String text,
-    ValueNotifier<bool> isProcessing,
-    ValueNotifier<String?> processingType,
-    ValueNotifier<ParsedEvent?> parsedEvent,
-    ValueNotifier<String?> errorMessage,
-    AILeapService aiService,
-    WidgetRef ref,
-  ) async {
-    if (text.trim().isEmpty) {
-      errorMessage.value = 'Please enter some text to process';
-      return;
-    }
-
-    // Check AI readiness
-    final aiServiceState = ref.read(aiServiceStateProvider);
-    if (!aiServiceState.isInitialized ||
-        aiServiceState.currentModelId == null) {
-      errorMessage.value =
-          'AI service is not ready. Please download and load a model first.';
-      return;
-    }
-
-    isProcessing.value = true;
-    processingType.value = 'text';
-    errorMessage.value = null;
-    parsedEvent.value = null;
-
-    try {
-      log('Starting AI text processing with: "$text"');
-      log(
-        'AI Service State: initialized=${aiServiceState.isInitialized}, currentModel=${aiServiceState.currentModelId}',
-      );
-
-      final result = await aiService.parseTextWithAI(text);
-      log('AI text processing result: $result');
-
-      if (result != null) {
-        log(
-          'Successfully parsed event: title="${result.title}", confidence=${result.confidence}',
-        );
-        parsedEvent.value = result;
-      } else {
-        log('AI returned null result - checking AI service state...');
-
-        // Additional debugging
-        if (!await aiService.isInitialized) {
-          errorMessage.value =
-              'AI service is not initialized. Please restart the app.';
-        } else if (aiServiceState.currentModelId == null) {
-          errorMessage.value =
-              'No AI model is loaded. Please go to Settings > Manage AI Models and load a model.';
-        } else {
-          // Try fallback parsing
-          log('AI parsing failed, trying fallback...');
-          final fallbackEvent = _createFallbackEvent(text);
-          if (fallbackEvent != null) {
-            parsedEvent.value = fallbackEvent;
-            log('Created fallback event: ${fallbackEvent.title}');
-          } else {
-            errorMessage.value =
-                'Failed to extract event information from text. Please try:\n• Simpler, clearer descriptions\n• Include specific dates and times\n• Check if the AI model is working properly';
-          }
-        }
-      }
-    } catch (e) {
-      log('Error processing text with AI: $e');
-      errorMessage.value = 'Error processing text: ${e.toString()}';
-    } finally {
-      isProcessing.value = false;
-      processingType.value = null;
-    }
-  }
-
   Future<void> _processImageWithAI(
     File imageFile,
     ValueNotifier<bool> isProcessing,
@@ -701,7 +634,29 @@ class AIEventScreen extends HookConsumerWidget {
       }
     } catch (e) {
       log('Error processing image with AI: $e');
-      errorMessage.value = 'Error processing image: ${e.toString()}';
+
+      // Provide more helpful error messages based on the specific error
+      String userFriendlyError;
+      if (e.toString().contains('model supports only string content') ||
+          e.toString().contains('InvalidArgumentException')) {
+        userFriendlyError =
+            'Vision model error: The loaded model doesn\'t support image processing. '
+            'Please ensure a vision model (like Vision Pro or Vision Lite) is downloaded and loaded, '
+            'then try again.';
+      } else if (e.toString().contains('Vision model') &&
+          e.toString().contains('not found')) {
+        userFriendlyError =
+            'Vision model not available. Please download a vision model '
+            '(Vision Pro or Vision Lite) from the AI Model Management screen first.';
+      } else if (e.toString().contains('Failed to load')) {
+        userFriendlyError =
+            'Failed to load vision model. Please check that you have enough '
+            'storage space and try restarting the app.';
+      } else {
+        userFriendlyError = 'Error processing image: ${e.toString()}';
+      }
+
+      errorMessage.value = userFriendlyError;
     } finally {
       isProcessing.value = false;
       processingType.value = null;
@@ -839,26 +794,61 @@ class AIEventScreen extends HookConsumerWidget {
     return modelInfo?.type == AIModelType.vision;
   }
 
-  Future<void> _testAIService(AILeapService aiService, WidgetRef ref) async {
-    log('Testing AI service...');
+  Future<void> _debugAIStatus(AILeapService aiService, WidgetRef ref) async {
+    log('🔍 === AI DEBUG STATUS ===');
 
     try {
-      final testText = "Meeting tomorrow at 2 PM";
-      log('Testing with simple text: "$testText"');
+      // Check AI service initialization
+      final isInitialized = await aiService.isInitialized;
+      log('🔧 AI Service Initialized: $isInitialized');
 
-      final result = await aiService.parseTextWithAI(testText);
-      log('Test result: $result');
+      // Check downloaded models
+      final downloadedModels = await aiService.getDownloadedModels();
+      log('📥 Downloaded Models: $downloadedModels');
 
-      // Just log the results instead of showing snackbars
-      if (result != null) {
-        log('✅ AI Test Success! Parsed: ${result.title}');
-      } else {
-        log('❌ AI Test Failed - returned null');
+      // Check AI service state
+      final aiServiceState = ref.read(aiServiceStateProvider);
+      log('📊 AI Service State:');
+      log('   - isInitialized: ${aiServiceState.isInitialized}');
+      log('   - currentModelId: ${aiServiceState.currentModelId}');
+      log('   - downloadedModels: ${aiServiceState.downloadedModels}');
+      log('   - isLoading: ${aiServiceState.isLoading}');
+      log('   - error: ${aiServiceState.error}');
+
+      // Try to get SDK status directly
+      try {
+        final sdkModels = await FlutterLeapSdkService.getDownloadedModels();
+        log('🔧 SDK Downloaded Models: $sdkModels');
+      } catch (e) {
+        log('❌ SDK Error: $e');
       }
     } catch (e) {
-      log('❌ AI Test Error: $e');
+      log('❌ Debug Error: $e');
     }
+
+    log('🔍 === END DEBUG ===');
   }
+
+  // Future<void> _testAIService(AILeapService aiService, WidgetRef ref) async {
+  //   log('Testing AI service...');
+
+  //   try {
+  //     final testText = "Meeting tomorrow at 2 PM";
+  //     log('Testing with simple text: "$testText"');
+
+  //     final result = await aiService.parseTextWithAI(testText);
+  //     log('Test result: $result');
+
+  //     // Just log the results instead of showing snackbars
+  //     if (result != null) {
+  //       log('✅ AI Test Success! Parsed: ${result.title}');
+  //     } else {
+  //       log('❌ AI Test Failed - returned null');
+  //     }
+  //   } catch (e) {
+  //     log('❌ AI Test Error: $e');
+  //   }
+  // }
 
   ParsedEvent? _createFallbackEvent(String text) {
     // Simple fallback parsing when AI fails
