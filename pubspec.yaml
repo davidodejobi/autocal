@@ -29,6 +29,7 @@ dependencies:
   dio: ^5.9.0
   fvm: ^3.2.1
   flutter_leap_sdk: ^0.2.3
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

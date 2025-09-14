@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' show log;
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_leap_sdk/flutter_leap_sdk.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/action_item.dart';
 import '../models/parsed_event.dart';
 import '../models/processed_notes.dart';
-import '../models/action_item.dart';
 
 /// Service for managing AI functionality using Flutter LEAP SDK
 class AILeapService {
@@ -78,7 +80,10 @@ class AILeapService {
   /// Initialize the AI service
   Future<bool> initialize() async {
     try {
+      // Initialize the Flutter LEAP SDK
+      await FlutterLeapSdkService.initialize();
       _isInitialized = true;
+      print('AI service initialized successfully');
       return true;
     } catch (e) {
       print('Failed to initialize AI service: $e');
@@ -86,6 +91,9 @@ class AILeapService {
       return false;
     }
   }
+
+  /// Check if AI service is initialized
+  Future<bool> get isInitialized async => _isInitialized;
 
   /// Check if a model exists locally
   Future<bool> checkModelExists(String modelId) async {
@@ -181,8 +189,23 @@ Respond with structured JSON containing these elements.''',
 
   /// Enhanced text parsing using AI with intelligent summarization and reminder scheduling
   Future<ParsedEvent?> parseTextWithAI(String text) async {
-    if (!_isInitialized || _textParsingConversation == null) {
+    if (!_isInitialized) {
+      print('AI service not initialized');
       return null;
+    }
+
+    if (_textParsingConversation == null) {
+      print('Text parsing conversation not initialized, creating new one...');
+      try {
+        await _initializeConversations();
+        if (_textParsingConversation == null) {
+          print('Failed to create text parsing conversation');
+          return null;
+        }
+      } catch (e) {
+        print('Failed to initialize conversations: $e');
+        return null;
+      }
     }
 
     try {

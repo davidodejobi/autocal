@@ -6,6 +6,7 @@ import '../providers/app_state_provider.dart';
 import '../providers/event_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../screens/add_event_screen.dart';
+import '../screens/ai_event_screen.dart';
 import '../screens/event_card_screen.dart';
 import '../screens/settings_screen.dart';
 import '../utils/app_colors.dart';
@@ -95,16 +96,37 @@ class HomeScreen extends HookConsumerWidget {
               children: [
                 _buildHomeContent(context, ref, appState, eventState),
                 _buildEventsContent(context, ref),
-                _buildAnalyticsContent(context, ref),
-                _buildSettingsContent(context, ref),
+                const SafeArea(child: SettingsScreen()),
               ],
             ),
-            // Add Event FAB - only show on home tab
-            if (selectedIndex.value == 0 && isNavBarVisible.value)
+            // Add Event Options - only show on home tab
+            if (selectedIndex.value == 0 && isNavBarVisible.value) ...[
+              // AI Event FAB
+              Positioned(
+                right: 20,
+                bottom: 190, // Position above manual FAB
+                child: FloatingActionButton(
+                  heroTag: "ai_fab",
+                  onPressed: () {
+                    final scheduleState = ref.read(scheduleProvider);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AIEventScreen(
+                          selectedDate: scheduleState.selectedDate,
+                        ),
+                      ),
+                    );
+                  },
+                  backgroundColor: AppColors.primary.withOpacity(0.9),
+                  child: const Icon(Icons.auto_awesome, color: Colors.white),
+                ),
+              ),
+              // Manual Event FAB
               Positioned(
                 right: 20,
                 bottom: 120, // Position above the navigation bar
                 child: FloatingActionButton(
+                  heroTag: "manual_fab",
                   onPressed: () {
                     final scheduleState = ref.read(scheduleProvider);
                     Navigator.of(context).push(
@@ -119,6 +141,66 @@ class HomeScreen extends HookConsumerWidget {
                   child: const Icon(Icons.add, color: Colors.white),
                 ),
               ),
+              // Labels for the FABs
+              Positioned(
+                right: 80,
+                bottom: 200,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'AI Event',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 80,
+                bottom: 130,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'Manual',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -203,48 +285,6 @@ class HomeScreen extends HookConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsContent(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(
-          left: AppSpacing.screenPadding,
-          right: AppSpacing.screenPadding,
-          top: AppSpacing.screenPadding,
-          bottom: 100, // Extra bottom padding for floating navigation
-        ),
-        child: Column(
-          children: [
-            const Center(child: Text('Analytics screen coming soon!')),
-            // Add some extra content to make it scrollable for testing
-            ...List.generate(
-              15,
-              (index) => Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('Analytics item ${index + 1}'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingsContent(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(
-          bottom: 100, // Extra bottom padding for floating navigation
-        ),
-        child: const SettingsScreen(),
       ),
     );
   }
