@@ -240,17 +240,8 @@ class ParsedEvent {
       }
     }
 
-    // Get confidence, default to 0.5 if not provided or invalid
-    double confidence = 0.5;
-    if (json['confidence'] != null) {
-      try {
-        confidence = (json['confidence'] as num).toDouble();
-        // Ensure confidence is between 0 and 1
-        confidence = confidence.clamp(0.0, 1.0);
-      } catch (e) {
-        print('Failed to parse confidence: ${json['confidence']}');
-      }
-    }
+    // Set default confidence to 0.8 (high confidence) since we no longer ask AI for confidence
+    double confidence = 0.8;
 
     return ParsedEvent(
       title: json['title'] as String?,

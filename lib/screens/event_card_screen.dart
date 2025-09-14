@@ -4,6 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../models/parsed_event.dart';
 import '../providers/app_state_provider.dart';
+import '../providers/schedule_provider.dart';
+import '../services/event_manager.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 
@@ -613,19 +615,7 @@ class EventCardScreen extends HookConsumerWidget {
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: ElevatedButton(
-            onPressed: () {
-              // TODO: Save event with smart reminders
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    parsedEvent.suggestedReminders != null
-                        ? 'Event saved with ${parsedEvent.suggestedReminders!.length} smart reminders!'
-                        : 'Event saved!',
-                  ),
-                ),
-              );
-              Navigator.of(context).pop();
-            },
+            onPressed: () => _saveEvent(context, ref, parsedEvent),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
@@ -633,6 +623,104 @@ class EventCardScreen extends HookConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Save event to local schedule and device calendar
+  Future<void> _saveEvent(
+    BuildContext context,
+    WidgetRef ref,
+    ParsedEvent parsedEvent,
+  ) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Get event manager
+      final eventManager = ref.read(eventManagerProvider);
+
+      // Convert ParsedEvent to ScheduleEvent
+      final scheduleEvent = eventManager.convertToScheduleEvent(parsedEvent);
+
+      // Validate event data
+      final validation = eventManager.validateEventData(scheduleEvent);
+      if (!validation.isValid) {
+        Navigator.of(context).pop(); // Close loading dialog
+        _showErrorDialog(
+          context,
+          'Validation Error',
+          validation.errors.join('\n'),
+        );
+        return;
+      }
+
+      // Save to local schedule
+      ref.read(scheduleProvider.notifier).addEvent(scheduleEvent);
+
+      // Try to save to device calendar
+      bool savedToCalendar = false;
+      try {
+        savedToCalendar = await eventManager.saveToDeviceCalendar(
+          scheduleEvent,
+        );
+      } catch (e) {
+        print('Calendar save failed (non-critical): $e');
+      }
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      // Show success message
+      final reminderCount = parsedEvent.suggestedReminders?.length ?? 0;
+      final message = savedToCalendar
+          ? reminderCount > 0
+                ? 'Event saved to calendar with $reminderCount smart reminders!'
+                : 'Event saved to calendar!'
+          : reminderCount > 0
+          ? 'Event saved locally with $reminderCount smart reminders!'
+          : 'Event saved locally!';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Navigate back to home
+      Navigator.of(context).pop();
+    } catch (e) {
+      // Close loading dialog if still open
+      Navigator.of(context).pop();
+
+      // Show error message
+      _showErrorDialog(
+        context,
+        'Save Error',
+        'Failed to save event: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Show error dialog
+  void _showErrorDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

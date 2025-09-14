@@ -262,7 +262,6 @@ Please provide a detailed JSON response with:
   "description": "Detailed description extracted from the image",
   "eventType": "meeting|appointment|deadline|social|travel|other",
   "importance": "high|medium|low",
-  "confidence": 0.0-1.0,
   "keyPoints": ["important point 1", "important point 2"]
 }
 
@@ -317,12 +316,11 @@ Please provide a detailed JSON response with:
   "description": "Detailed description extracted from the image",
   "eventType": "meeting|appointment|deadline|social|travel|other",
   "importance": "high|medium|low",
-  "confidence": 0.0-1.0,
   "keyPoints": ["important point 1", "important point 2"]
 }
 
 Be precise and only extract information that is clearly visible in the image.
-Extract calendar event information from this image. Additional context: $additionalContext''';
+Extract calendar event information from this image: $additionalContext''';
 
       log('🤖 Sending prompt: "$contextPrompt"');
       log('📷 Processing image with ${imageBytes.length} bytes...');
@@ -890,13 +888,14 @@ class AIServiceStateNotifier extends StateNotifier<AIServiceState> {
       if (downloadedModels.isNotEmpty) {
         log('🔄 Attempting to load models: $downloadedModels');
 
-        // Sort vision models by strength (basic first for faster loading)
+        // Sort vision models by strength (basic first for faster loading and better memory usage)
         final sortedModels = [...downloadedModels];
         sortedModels.sort((a, b) {
           final aInfo = AILeapService.availableModels[a];
           final bInfo = AILeapService.availableModels[b];
 
           // Sort by strength (basic < intermediate < advanced)
+          // This ensures we try lighter models first to avoid memory issues
           final aStrength = aInfo?.strength.index ?? 0;
           final bStrength = bInfo?.strength.index ?? 0;
           return aStrength.compareTo(bStrength);
@@ -906,6 +905,15 @@ class AIServiceStateNotifier extends StateNotifier<AIServiceState> {
 
         for (final modelId in sortedModels) {
           log('🔄 Attempting to load model: $modelId');
+          final modelInfo = AILeapService.availableModels[modelId];
+
+          // Log model size information
+          if (modelInfo != null) {
+            log(
+              '📊 Model info: ${modelInfo.displayName} - ${modelInfo.size} (${modelInfo.strength.name})',
+            );
+          }
+
           try {
             final success = await _aiService.loadModel(modelId);
             log('✅ Model loading result for $modelId: $success');
@@ -918,7 +926,18 @@ class AIServiceStateNotifier extends StateNotifier<AIServiceState> {
             }
           } catch (e) {
             log('❌ Failed to load model $modelId: $e');
-            // Continue to next model
+
+            // Check if this is a memory-related error
+            final errorString = e.toString().toLowerCase();
+            if (errorString.contains('memory') ||
+                errorString.contains('allocation') ||
+                errorString.contains('lost connection') ||
+                errorString.contains('out of memory')) {
+              log(
+                '⚠️ Memory-related error detected. Skipping large models and trying smaller ones.',
+              );
+              // Continue to next (smaller) model
+            }
           }
         }
 

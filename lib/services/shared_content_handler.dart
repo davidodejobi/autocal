@@ -10,6 +10,7 @@ import 'package:share_handler/share_handler.dart';
 
 import '../providers/event_provider.dart';
 import '../providers/text_parsing_provider.dart';
+import 'ai_leap_service.dart';
 
 /// Exception thrown when shared content cannot be processed
 class SharedContentException implements Exception {
@@ -199,11 +200,19 @@ class SharedContentHandler {
       // Handle shared attachments (images, files, etc.)
       if (media.attachments != null && media.attachments!.isNotEmpty) {
         for (final attachment in media.attachments!) {
-          if (attachment?.type == SharedAttachmentType.image) {
+          if (attachment?.type == SharedAttachmentType.image &&
+              attachment?.path != null) {
             _logInfo(
               'Received shared image via share_handler: ${attachment?.path}',
             );
-            // TODO: Handle image attachments
+            // Convert to SharedMediaFile format for processing
+            final sharedImageFile = SharedMediaFile(
+              path: attachment!.path,
+              thumbnail: null,
+              duration: null,
+              type: SharedMediaType.image,
+            );
+            await _processImageWithAI(sharedImageFile);
           } else {
             _logInfo('Unsupported attachment type: ${attachment?.type}');
           }
@@ -309,13 +318,8 @@ class SharedContentHandler {
         throw SharedContentException('Image file too large: $fileSize bytes');
       }
 
-      // Try to extract text from image if it contains text
-      final extractedText = await _extractTextFromImage(imageFile.path);
-      if (extractedText.isNotEmpty) {
-        await _processTextContent(extractedText);
-      } else {
-        _logInfo('No text extracted from image or OCR not implemented');
-      }
+      // Process image with AI vision models
+      await _processImageWithAI(imageFile);
     } catch (e) {
       _logError('Error handling shared image: ${imageFile.path}', e);
       if (e is! SharedContentException) {
@@ -354,23 +358,223 @@ class SharedContentHandler {
     }
   }
 
-  /// Extract text content from image using OCR
-  Future<String> _extractTextFromImage(String imagePath) async {
+  /// Process image with AI vision models
+  Future<void> _processImageWithAI(SharedMediaFile imageFile) async {
+    if (_ref == null) {
+      throw const SharedContentException(
+        'SharedContentHandler not initialized',
+      );
+    }
+
     try {
-      // TODO: Implement OCR text extraction from image
+      _logInfo('🔍 Processing shared image with AI: ${imageFile.path}');
+
+      // Read image file as bytes
+      final file = File(imageFile.path);
+      final imageBytes = await file.readAsBytes();
+
+      _logInfo('📷 Image loaded, size: ${imageBytes.length} bytes');
+
+      // Get AI service
+      final aiService = _ref!.read(aiLeapServiceProvider);
+
+      // Check if AI service is ready, with proper waiting for model loading
+      if (!aiService.isReady) {
+        _logInfo('⏳ AI service not ready, waiting for model to load...');
+
+        // Wait for AI service state to have a loaded model
+        final aiServiceState = _ref!.read(aiServiceStateProvider);
+
+        // If not initialized at all, wait for initialization
+        if (!aiServiceState.isInitialized) {
+          _logInfo('🔧 Waiting for AI service initialization...');
+
+          // Wait up to 10 seconds for initialization
+          for (int i = 0; i < 20; i++) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            final currentState = _ref!.read(aiServiceStateProvider);
+            if (currentState.isInitialized) {
+              _logInfo('✅ AI service initialization completed');
+              break;
+            }
+            if (i == 19) {
+              throw const SharedContentException(
+                'AI service initialization timed out. Please ensure a vision model is downloaded.',
+              );
+            }
+          }
+        }
+
+        // Now wait for a model to be loaded
+        _logInfo('🤖 Waiting for AI model to load...');
+        for (int i = 0; i < 60; i++) {
+          // Wait up to 30 seconds for model loading
+          await Future.delayed(const Duration(milliseconds: 500));
+          final currentState = _ref!.read(aiServiceStateProvider);
+
+          if (currentState.currentModelId != null && aiService.isReady) {
+            _logInfo(
+              '🎯 AI model loaded successfully: ${currentState.currentModelId}',
+            );
+            break;
+          }
+
+          if (currentState.error != null) {
+            _logError('❌ AI model loading failed', currentState.error);
+            throw SharedContentException(
+              'AI model loading failed: ${currentState.error}',
+            );
+          }
+
+          if (i == 59) {
+            throw const SharedContentException(
+              'AI model loading timed out after 30 seconds. This may be due to insufficient memory for the current model. Consider downloading Vision Lite for better compatibility.',
+            );
+          }
+        }
+      }
+
+      _logInfo('🚀 Starting AI image processing...');
+
+      // Process image with AI with timeout to prevent hanging
+      final parsedEvent = await Future.any([
+        aiService.parseImageWithAI(
+          imageBytes,
+          additionalContext: 'Shared image from external app',
+        ),
+        Future.delayed(
+          const Duration(seconds: 45), // Extended timeout for large models
+          () => throw const SharedContentException(
+            'Image processing timed out after 45 seconds. This may be due to insufficient memory for the current AI model.',
+          ),
+        ),
+      ]);
+
+      _logInfo('📊 AI processing completed');
+
+      if (parsedEvent != null) {
+        _logInfo('✅ Successfully parsed event from image:');
+        _logInfo('   📅 Title: ${parsedEvent.title}');
+        _logInfo('   📅 Date: ${parsedEvent.date}');
+        _logInfo('   📅 Start Time: ${parsedEvent.startTime}');
+        _logInfo('   📅 End Time: ${parsedEvent.endTime}');
+        _logInfo('   📍 Location: ${parsedEvent.location}');
+        _logInfo('   📝 Description: ${parsedEvent.description}');
+        _logInfo('   🏷️ Event Type: ${parsedEvent.eventType}');
+        _logInfo('   ⚡ Importance: ${parsedEvent.importance}');
+
+        // Log the full AI response if available
+        final aiResponse = parsedEvent.metadata['response'];
+        if (aiResponse != null) {
+          _logInfo('🤖 Full AI Response:');
+          _logInfo('$aiResponse');
+        }
+
+        // Update the event provider with the parsed event
+        _ref!.read(eventProvider.notifier).setParsedEvent(parsedEvent);
+        _logInfo('🎉 Successfully processed shared image with AI');
+
+        // Dispose AI resources to free memory (keep initialization)
+        await _disposeAIResources();
+      } else {
+        _logInfo('⚠️ AI could not extract event information from image');
+        // Still try basic OCR as fallback
+        final extractedText = await _extractTextFromImageFallback(
+          imageFile.path,
+        );
+        if (extractedText.isNotEmpty) {
+          await _processTextContent(extractedText);
+          // Dispose AI resources after fallback processing
+          await _disposeAIResources();
+        } else {
+          // Dispose AI resources before throwing error
+          await _disposeAIResources();
+
+          // Check if user only has large models that might be causing memory issues
+          final aiServiceState = _ref!.read(aiServiceStateProvider);
+          final hasOnlyLargeModels =
+              aiServiceState.downloadedModels.isNotEmpty &&
+              aiServiceState.downloadedModels.every((modelId) {
+                final modelInfo = AILeapService.availableModels[modelId];
+                return modelInfo?.strength == AIModelStrength.advanced;
+              });
+
+          if (hasOnlyLargeModels) {
+            throw const SharedContentException(
+              'Could not process image. This may be due to insufficient memory for the current AI model. '
+              'Consider downloading Vision Lite (385MB) for better compatibility with image sharing.',
+            );
+          } else {
+            throw const SharedContentException(
+              'Could not extract event information from image. Please ensure the image contains clear event details.',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      _logError('💥 Error processing image with AI', e);
+
+      // Dispose AI resources even on error to prevent memory leaks
+      try {
+        await _disposeAIResources();
+      } catch (disposeError) {
+        _logError('Error disposing AI resources', disposeError);
+      }
+
+      if (e is! SharedContentException) {
+        throw SharedContentException(
+          'Failed to process shared image with AI',
+          e.toString(),
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// Dispose AI resources after processing to free memory
+  Future<void> _disposeAIResources() async {
+    try {
+      _logInfo('🧹 Disposing AI resources to free memory...');
+
+      final aiService = _ref!.read(aiLeapServiceProvider);
+
+      // Unload the current model to free memory
+      // Note: We keep the AI service initialized for future use
+      if (aiService.isReady) {
+        _logInfo('📤 Unloading AI model to free memory...');
+
+        // Get the AI service state notifier to unload model
+        final aiServiceNotifier = _ref!.read(aiServiceStateProvider.notifier);
+        await aiServiceNotifier.unloadModel();
+
+        _logInfo('✅ AI model unloaded successfully');
+      }
+
+      // Force garbage collection to free memory immediately
+      _logInfo('🗑️ Triggering garbage collection...');
+      // Note: Dart doesn't have explicit GC control, but we can suggest it
+
+      _logInfo('✨ AI resources disposed successfully');
+    } catch (e) {
+      _logError('❌ Error disposing AI resources', e);
+      // Don't rethrow - this is cleanup, shouldn't break the main flow
+    }
+  }
+
+  /// Fallback OCR text extraction (placeholder for future implementation)
+  Future<String> _extractTextFromImageFallback(String imagePath) async {
+    try {
+      // TODO: Implement basic OCR as fallback
       // This could use packages like:
       // - google_ml_kit for text recognition
       // - tflite_flutter for custom OCR models
-      // - firebase_ml_vision (deprecated, but still works)
 
-      // For now, just return empty string
-      // When OCR is implemented, extracted text can be processed like regular text
       _logInfo(
-        'OCR text extraction from image not yet implemented: $imagePath',
+        '📝 Fallback OCR text extraction not yet implemented: $imagePath',
       );
       return '';
     } catch (e) {
-      _logError('Error in OCR text extraction', e);
+      _logError('Error in fallback OCR text extraction', e);
       return '';
     }
   }

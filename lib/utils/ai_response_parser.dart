@@ -147,6 +147,22 @@ class AIResponseParser {
           // Remove trailing commas before closing braces/brackets
           .replaceAll(RegExp(r',\s*}'), '}')
           .replaceAll(RegExp(r',\s*]'), ']')
+          // Fix malformed confidence values like "0.0-1.0" to "0.8"
+          .replaceAll(
+            RegExp(r'"confidence":\s*"?0\.0-1\.0"?'),
+            '"confidence": 0.8',
+          )
+          .replaceAll(
+            RegExp(r'"confidence":\s*"?[0-9]+\.[0-9]+-[0-9]+\.[0-9]+"?'),
+            '"confidence": 0.8',
+          )
+          // Fix malformed eventType values like "meeting|other" to "meeting"
+          .replaceAll(
+            RegExp(r'"eventType":\s*"([^"|]+)\|[^"]*"'),
+            '"eventType": "\$1"',
+          )
+          // Remove confidence field entirely if it exists (since we don't need it)
+          .replaceAll(RegExp(r',?\s*"confidence":\s*[^,}]+'), '')
           // Fix unescaped quotes in strings (basic attempt)
           .replaceAll(RegExp(r'(?<!\\)"(?![,\]\}:\s])'), '\\"')
           // Remove extra whitespace
