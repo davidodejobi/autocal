@@ -9,7 +9,6 @@ import '../screens/ai_event_screen.dart';
 import '../screens/event_card_screen.dart';
 import '../screens/settings_screen.dart';
 import '../utils/app_colors.dart';
-import '../utils/app_spacing.dart';
 import '../widgets/custom_floating_navigation_bar.dart';
 import '../widgets/schedule_view.dart';
 
@@ -97,6 +96,9 @@ class HomeScreen extends HookConsumerWidget {
                 const SafeArea(child: SettingsScreen()),
               ],
             ),
+
+            // Shared content loading overlay
+            if (eventState.isProcessing) _buildLoadingOverlay(context),
             // // Add Event Options - only show on home tab
             // if (selectedIndex.value == 0 && isNavBarVisible.value) ...[
             //   // AI Test FAB
@@ -272,19 +274,52 @@ class HomeScreen extends HookConsumerWidget {
     );
   }
 
-  Widget _buildEventsContent(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(
-          left: AppSpacing.screenPadding,
-          right: AppSpacing.screenPadding,
-          top: AppSpacing.screenPadding,
-          bottom: 100, // Extra bottom padding for floating navigation
-        ),
-        child: const Center(
-          child: Text(
-            'Events will appear here when created',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+  /// Build loading overlay for shared content processing
+  Widget _buildLoadingOverlay(BuildContext context) {
+    return Container(
+      color: Colors.black.withOpacity(0.7),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  strokeWidth: 4,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Processing shared content...',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Extracting event details with AI',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),

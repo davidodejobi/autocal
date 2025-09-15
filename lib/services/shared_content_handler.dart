@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:autocal/screens/event_card_screen.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:share_handler/share_handler.dart';
@@ -11,6 +12,9 @@ import 'package:share_handler/share_handler.dart';
 import '../providers/event_provider.dart';
 import '../providers/text_parsing_provider.dart';
 import 'ai_leap_service.dart';
+
+//get global context
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 /// Exception thrown when shared content cannot be processed
 class SharedContentException implements Exception {
@@ -35,6 +39,9 @@ class SharedContentHandler {
   StreamSubscription<SharedMedia>? _shareHandlerSubscription;
   WidgetRef? _ref;
   late final Dio _dio;
+
+  // Track processed content to prevent duplicates
+  final Set<String> _processedContent = <String>{};
 
   static const int _urlTimeoutSeconds = 10;
   static const int _maxContentLength = 1000000; // 1MB limit for URL content
@@ -167,9 +174,6 @@ class SharedContentHandler {
               'Received shared image via receive_sharing_intent: ${file.path}',
             );
             await _handleSharedImage(file);
-            _logInfo(
-              'Received shared image via receive_sharing_intent: ${file.path}',
-            );
             break;
           case SharedMediaType.video:
             _logInfo('Video sharing not supported: ${file.path}');
@@ -231,6 +235,17 @@ class SharedContentHandler {
       );
     }
 
+    // Prevent duplicate processing of the same text
+    final textHash = text.trim().hashCode.toString();
+    if (_processedContent.contains(textHash)) {
+      _logInfo('⏭️ Skipping duplicate text processing');
+      return;
+    }
+    _processedContent.add(textHash);
+
+    // Set processing state to show loading overlay
+    _ref!.read(eventProvider.notifier).setProcessing(true);
+
     try {
       // Validate input
       if (text.trim().isEmpty) {
@@ -258,7 +273,12 @@ class SharedContentHandler {
           await _processTextContent(text);
         } catch (fallbackError) {
           _logError('Fallback text processing also failed', fallbackError);
+          // Clear processing state on final failure
+          _ref!.read(eventProvider.notifier).setProcessing(false);
         }
+      } else {
+        // Clear processing state on error
+        _ref!.read(eventProvider.notifier).setProcessing(false);
       }
     }
   }
@@ -276,8 +296,25 @@ class SharedContentHandler {
       _ref!.read(eventProvider.notifier).setParsedEvent(parsedEvent);
 
       _logInfo('Successfully processed shared text content');
+
+      // Navigate to EventCardScreen using the global navigator
+      if (navigatorKey.currentContext != null) {
+        Navigator.of(navigatorKey.currentContext!).push(
+          MaterialPageRoute(
+            builder: (context) => EventCardScreen(parsedEvent: parsedEvent),
+          ),
+        );
+      }
+
+      // Clear processing state after successful completion
+      _ref!.read(eventProvider.notifier).setProcessing(false);
+
+      // Clean up processed content cache
+      _cleanupProcessedContent();
     } catch (e) {
       _logError('Error processing text content', e);
+      // Clear processing state on error
+      _ref!.read(eventProvider.notifier).setProcessing(false);
       throw SharedContentException(
         'Failed to parse text content',
         e.toString(),
@@ -366,6 +403,17 @@ class SharedContentHandler {
       );
     }
 
+    // Prevent duplicate processing of the same image
+    final imagePath = imageFile.path;
+    if (_processedContent.contains(imagePath)) {
+      _logInfo('⏭️ Skipping duplicate image processing: $imagePath');
+      return;
+    }
+    _processedContent.add(imagePath);
+
+    // Set processing state to show loading overlay
+    _ref!.read(eventProvider.notifier).setProcessing(true);
+
     try {
       _logInfo('🔍 Processing shared image with AI: ${imageFile.path}');
 
@@ -389,15 +437,15 @@ class SharedContentHandler {
         if (!aiServiceState.isInitialized) {
           _logInfo('🔧 Waiting for AI service initialization...');
 
-          // Wait up to 10 seconds for initialization
-          for (int i = 0; i < 20; i++) {
+          // Wait up to 30 seconds for initialization (increased from 10)
+          for (int i = 0; i < 60; i++) {
             await Future.delayed(const Duration(milliseconds: 500));
             final currentState = _ref!.read(aiServiceStateProvider);
             if (currentState.isInitialized) {
               _logInfo('✅ AI service initialization completed');
               break;
             }
-            if (i == 19) {
+            if (i == 59) {
               throw const SharedContentException(
                 'AI service initialization timed out. Please ensure a vision model is downloaded.',
               );
@@ -405,14 +453,15 @@ class SharedContentHandler {
           }
         }
 
-        // Now wait for a model to be loaded
+        // Now wait for a model to be loaded (more generous timeout for large models)
         _logInfo('🤖 Waiting for AI model to load...');
-        for (int i = 0; i < 60; i++) {
-          // Wait up to 30 seconds for model loading
+        for (int i = 0; i < 120; i++) {
+          // Wait up to 60 seconds for model loading (increased from 30)
           await Future.delayed(const Duration(milliseconds: 500));
           final currentState = _ref!.read(aiServiceStateProvider);
 
-          if (currentState.currentModelId != null && aiService.isReady) {
+          // Check if service is ready first, then verify model state
+          if (aiService.isReady && currentState.currentModelId != null) {
             _logInfo(
               '🎯 AI model loaded successfully: ${currentState.currentModelId}',
             );
@@ -426,9 +475,9 @@ class SharedContentHandler {
             );
           }
 
-          if (i == 59) {
+          if (i == 119) {
             throw const SharedContentException(
-              'AI model loading timed out after 30 seconds. This may be due to insufficient memory for the current model. Consider downloading Vision Lite for better compatibility.',
+              'AI model loading timed out after 60 seconds. This may be due to insufficient memory for the current model. Consider downloading Vision Lite for better compatibility.',
             );
           }
         }
@@ -443,9 +492,11 @@ class SharedContentHandler {
           additionalContext: 'Shared image from external app',
         ),
         Future.delayed(
-          const Duration(seconds: 45), // Extended timeout for large models
+          const Duration(
+            seconds: 90,
+          ), // Extended timeout for large models (increased from 45)
           () => throw const SharedContentException(
-            'Image processing timed out after 45 seconds. This may be due to insufficient memory for the current AI model.',
+            'Image processing timed out after 90 seconds. This may be due to insufficient memory for the current AI model.',
           ),
         ),
       ]);
@@ -474,8 +525,23 @@ class SharedContentHandler {
         _ref!.read(eventProvider.notifier).setParsedEvent(parsedEvent);
         _logInfo('🎉 Successfully processed shared image with AI');
 
+        // Navigate to EventCardScreen using the global navigator
+        if (navigatorKey.currentContext != null) {
+          Navigator.of(navigatorKey.currentContext!).push(
+            MaterialPageRoute(
+              builder: (context) => EventCardScreen(parsedEvent: parsedEvent),
+            ),
+          );
+        }
+
         // Dispose AI resources to free memory (keep initialization)
         await _disposeAIResources();
+
+        // Clear processing state after successful completion
+        _ref!.read(eventProvider.notifier).setProcessing(false);
+
+        // Clean up processed content cache
+        _cleanupProcessedContent();
       } else {
         _logInfo('⚠️ AI could not extract event information from image');
         // Still try basic OCR as fallback
@@ -485,10 +551,14 @@ class SharedContentHandler {
         if (extractedText.isNotEmpty) {
           await _processTextContent(extractedText);
           // Dispose AI resources after fallback processing
+          // Note: _processTextContent already clears processing state
           await _disposeAIResources();
         } else {
           // Dispose AI resources before throwing error
           await _disposeAIResources();
+
+          // Clear processing state before throwing error
+          _ref!.read(eventProvider.notifier).setProcessing(false);
 
           // Check if user only has large models that might be causing memory issues
           final aiServiceState = _ref!.read(aiServiceStateProvider);
@@ -513,6 +583,9 @@ class SharedContentHandler {
       }
     } catch (e) {
       _logError('💥 Error processing image with AI', e);
+
+      // Clear processing state on error
+      _ref!.read(eventProvider.notifier).setProcessing(false);
 
       // Dispose AI resources even on error to prevent memory leaks
       try {
@@ -749,6 +822,24 @@ class SharedContentHandler {
     );
   }
 
+  /// Clean up old processed content entries to prevent memory leaks
+  void _cleanupProcessedContent() {
+    // Keep only the most recent 50 processed items to prevent memory bloat
+    if (_processedContent.length > 50) {
+      final itemsToRemove = _processedContent.length - 50;
+      final iterator = _processedContent.iterator;
+      for (int i = 0; i < itemsToRemove && iterator.moveNext(); i++) {
+        // Remove from iterator is not available, so we'll clear and rebuild
+      }
+      // For simplicity, just clear when it gets too big
+      // In production, you might want to use a more sophisticated LRU cache
+      if (_processedContent.length > 100) {
+        _processedContent.clear();
+        _logInfo('🧹 Cleared processed content cache to prevent memory bloat');
+      }
+    }
+  }
+
   /// Dispose of resources
   void dispose() {
     _mediaStreamSubscription?.cancel();
@@ -756,6 +847,7 @@ class SharedContentHandler {
     _shareHandlerSubscription?.cancel();
     _shareHandlerSubscription = null;
     _dio.close();
+    _processedContent.clear();
     _ref = null;
     _logInfo('SharedContentHandler disposed');
   }

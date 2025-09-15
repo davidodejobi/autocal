@@ -38,7 +38,7 @@ class _AutoCalAppState extends ConsumerState<AutoCalApp> {
     return MaterialApp(
       title: 'AutoCal',
       theme: AppTheme.lightTheme,
-
+      navigatorKey: navigatorKey,
       home: const HomeScreen(),
       debugShowCheckedModeBanner: false,
     );

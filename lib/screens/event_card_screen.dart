@@ -25,6 +25,9 @@ class EventCardScreen extends HookConsumerWidget {
       text: parsedEvent.location ?? '',
     );
 
+    // State to prevent double-tapping save button
+    final isSaving = useState(false);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -86,7 +89,7 @@ class EventCardScreen extends HookConsumerWidget {
             const SizedBox(height: AppSpacing.sectionSpacing),
 
             // Action Buttons
-            _buildActionButtons(context, ref),
+            _buildActionButtons(context, ref, isSaving),
           ],
         ),
       ),
@@ -600,12 +603,18 @@ class EventCardScreen extends HookConsumerWidget {
     }
   }
 
-  Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
+  Widget _buildActionButtons(
+    BuildContext context,
+    WidgetRef ref,
+    ValueNotifier<bool> isSaving,
+  ) {
     return Row(
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: isSaving.value
+                ? null
+                : () => Navigator.of(context).pop(),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
@@ -615,11 +624,22 @@ class EventCardScreen extends HookConsumerWidget {
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: ElevatedButton(
-            onPressed: () => _saveEvent(context, ref, parsedEvent),
+            onPressed: isSaving.value
+                ? null
+                : () => saveEvent(context, ref, parsedEvent, isSaving),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: const Text('Save Event'),
+            child: isSaving.value
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Save Event'),
           ),
         ),
       ],
@@ -627,100 +647,97 @@ class EventCardScreen extends HookConsumerWidget {
   }
 
   /// Save event to local schedule and device calendar
-  Future<void> _saveEvent(
-    BuildContext context,
-    WidgetRef ref,
-    ParsedEvent parsedEvent,
-  ) async {
-    try {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+}
 
-      // Get event manager
-      final eventManager = ref.read(eventManagerProvider);
-
-      // Convert ParsedEvent to ScheduleEvent
-      final scheduleEvent = eventManager.convertToScheduleEvent(parsedEvent);
-
-      // Validate event data
-      final validation = eventManager.validateEventData(scheduleEvent);
-      if (!validation.isValid) {
-        Navigator.of(context).pop(); // Close loading dialog
-        _showErrorDialog(
-          context,
-          'Validation Error',
-          validation.errors.join('\n'),
-        );
-        return;
-      }
-
-      // Save to local schedule
-      ref.read(scheduleProvider.notifier).addEvent(scheduleEvent);
-
-      // Try to save to device calendar
-      bool savedToCalendar = false;
-      try {
-        savedToCalendar = await eventManager.saveToDeviceCalendar(
-          scheduleEvent,
-        );
-      } catch (e) {
-        print('Calendar save failed (non-critical): $e');
-      }
-
-      // Close loading dialog
-      Navigator.of(context).pop();
-
-      // Show success message
-      final reminderCount = parsedEvent.suggestedReminders?.length ?? 0;
-      final message = savedToCalendar
-          ? reminderCount > 0
-                ? 'Event saved to calendar with $reminderCount smart reminders!'
-                : 'Event saved to calendar!'
-          : reminderCount > 0
-          ? 'Event saved locally with $reminderCount smart reminders!'
-          : 'Event saved locally!';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
+/// Show error dialog
+void showErrorDialog(BuildContext context, String title, String message) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('OK'),
         ),
-      );
+      ],
+    ),
+  );
+}
 
-      // Navigate back to home
-      Navigator.of(context).pop();
-    } catch (e) {
-      // Close loading dialog if still open
-      Navigator.of(context).pop();
+Future<void> saveEvent(
+  BuildContext context,
+  WidgetRef ref,
+  ParsedEvent parsedEvent,
+  ValueNotifier<bool> isSaving,
+) async {
+  try {
+    // Set saving state
+    isSaving.value = true;
 
-      // Show error message
-      _showErrorDialog(
+    // Get event manager
+    final eventManager = ref.read(eventManagerProvider);
+
+    // Convert ParsedEvent to ScheduleEvent
+    final scheduleEvent = eventManager.convertToScheduleEvent(parsedEvent);
+
+    // Validate event data
+    final validation = eventManager.validateEventData(scheduleEvent);
+    if (!validation.isValid) {
+      isSaving.value = false; // Reset saving state
+      showErrorDialog(
         context,
-        'Save Error',
-        'Failed to save event: ${e.toString()}',
+        'Validation Error',
+        validation.errors.join('\n'),
       );
+      return;
     }
-  }
 
-  /// Show error dialog
-  void _showErrorDialog(BuildContext context, String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
+    // Save to local schedule
+    ref.read(scheduleProvider.notifier).addEvent(scheduleEvent);
+
+    // Try to save to device calendar
+    bool savedToCalendar = false;
+    try {
+      savedToCalendar = await eventManager.saveToDeviceCalendar(scheduleEvent);
+    } catch (e) {
+      print('Calendar save failed (non-critical): $e');
+    }
+
+    // Show success message
+    final reminderCount = parsedEvent.suggestedReminders?.length ?? 0;
+    final message = savedToCalendar
+        ? reminderCount > 0
+              ? 'Event saved to calendar with $reminderCount smart reminders!'
+              : 'Event saved to calendar!'
+        : reminderCount > 0
+        ? 'Event saved locally with $reminderCount smart reminders!'
+        : 'Event saved locally!';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
         content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
       ),
+    );
+
+    // Reset saving state
+    isSaving.value = false;
+
+    // Navigate back to home
+    Navigator.of(context).pop();
+    Navigator.of(context).pop();
+  } catch (e) {
+    // Reset saving state
+    isSaving.value = false;
+
+    // Show error message
+    showErrorDialog(
+      context,
+      'Save Error',
+      'Failed to save event: ${e.toString()}',
     );
   }
 }
